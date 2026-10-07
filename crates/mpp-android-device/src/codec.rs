@@ -25,6 +25,8 @@ pub struct Encoder {
     input_surface: *mut c_void,
     started: bool,
     ended: bool,
+    width: u32,
+    height: u32,
 }
 
 #[derive(Debug)]
@@ -37,6 +39,12 @@ pub struct EncodedFrame {
 
 impl Encoder {
     pub fn new(width: u32, height: u32, bitrate: u32, fps: u32) -> Result<Self> {
+        let mut encoder = Self::configure(width, height, bitrate, fps)?;
+        encoder.start()?;
+        Ok(encoder)
+    }
+
+    pub fn configure(width: u32, height: u32, bitrate: u32, fps: u32) -> Result<Self> {
         validate_settings(width, height, bitrate, fps)?;
         // SAFETY: the MIME string is static, NUL-terminated, and valid for this call.
         let codec = NonNull::new(unsafe { AMediaCodec_createEncoderByType(c"video/avc".as_ptr()) })
@@ -48,6 +56,8 @@ impl Encoder {
             input_surface: ptr::null_mut(),
             started: false,
             ended: false,
+            width,
+            height,
         };
         let format = Format::new()?;
         format.set_string(c"mime", c"video/avc");
@@ -59,6 +69,21 @@ impl Encoder {
         format.set_i32(c"i-frame-interval", 1);
         // Older codecs may ignore this key; it must not be treated as a capability guarantee.
         format.set_i32(c"max-bframes", 0);
+        format.set_i32(c"priority", 0);
+        format.set_i32(c"latency", 1);
+        // SAFETY: the format owns copied values and both keys are static C strings.
+        unsafe {
+            AMediaFormat_setFloat(
+                format.0.as_ptr(),
+                c"max-fps-to-encoder".as_ptr(),
+                fps as f32,
+            );
+            AMediaFormat_setInt64(
+                format.0.as_ptr(),
+                c"repeat-previous-frame-after".as_ptr(),
+                100_000,
+            );
+        }
         // SAFETY: both handles are live, and an encoder has no output surface or crypto object.
         check_status("configure", unsafe {
             AMediaCodec_configure(
@@ -77,12 +102,72 @@ impl Encoder {
         if encoder.input_surface.is_null() {
             return Err(codec_error("create input surface returned a null window"));
         }
-        // SAFETY: the configured codec has an input surface and is exclusively owned.
-        check_status("start", unsafe {
-            AMediaCodec_start(encoder.codec.as_ptr())
-        })?;
-        encoder.started = true;
         Ok(encoder)
+    }
+
+    pub fn start(&mut self) -> Result<()> {
+        if self.started {
+            return Err(codec_error("encoder was already started"));
+        }
+        // SAFETY: the configured codec has an input surface and is exclusively owned.
+        check_status("start", unsafe { AMediaCodec_start(self.codec.as_ptr()) })?;
+        self.started = true;
+        Ok(())
+    }
+
+    pub fn request_key_frame(&mut self) -> Result<()> {
+        let parameters = Format::new()?;
+        parameters.set_i32(c"request-sync", 0);
+        // SAFETY: this running codec and the parameter format are live and exclusively owned.
+        check_status("request key frame", unsafe {
+            AMediaCodec_setParameters(self.codec.as_ptr(), parameters.0.as_ptr())
+        })
+    }
+
+    pub fn ended(&self) -> bool {
+        self.ended
+    }
+
+    pub fn output_configuration(&mut self) -> Result<Option<EncodedFrame>> {
+        // SAFETY: a started codec owns an output format; this call transfers a new format reference.
+        let format = Format(
+            NonNull::new(unsafe { AMediaCodec_getOutputFormat(self.codec.as_ptr()) })
+                .ok_or_else(|| codec_error("encoder returned no output format"))?,
+        );
+        for (key, expected) in [(c"width", self.width), (c"height", self.height)] {
+            let mut actual = 0;
+            // SAFETY: the format is live and actual is writable for an i32 result.
+            if unsafe { AMediaFormat_getInt32(format.0.as_ptr(), key.as_ptr(), &mut actual) }
+                && actual != expected as i32
+            {
+                return Err(codec_error(
+                    "encoder output dimensions differ from capture geometry",
+                ));
+            }
+        }
+        let mut bytes = Vec::new();
+        for key in [c"csd-0", c"csd-1"] {
+            let mut pointer = ptr::null_mut();
+            let mut length = 0;
+            // SAFETY: both output pointers are writable; the format retains the returned data.
+            if unsafe {
+                AMediaFormat_getBuffer(format.0.as_ptr(), key.as_ptr(), &mut pointer, &mut length)
+            } {
+                if pointer.is_null() || length == 0 || length > 8 * 1024 * 1024 - bytes.len() {
+                    return Err(codec_error("encoder configuration size is invalid"));
+                }
+                // SAFETY: the format promises length readable bytes, bounded above, and is still live.
+                bytes.extend_from_slice(unsafe {
+                    std::slice::from_raw_parts(pointer.cast::<u8>(), length)
+                });
+            }
+        }
+        Ok((!bytes.is_empty()).then_some(EncodedFrame {
+            bytes,
+            pts_us: 0,
+            configuration: true,
+            key_frame: false,
+        }))
     }
 
     /// Borrowed ANativeWindow, valid only while this encoder lives. Do not release it.
@@ -101,8 +186,9 @@ impl Encoder {
             AMediaCodec_dequeueOutputBuffer(self.codec.as_ptr(), &mut info, DEQUEUE_TIMEOUT_US)
         };
         match index {
-            // Retry, output format change, and legacy output buffer change carry no buffer.
-            -3..=-1 => return Ok(None),
+            -2 => return self.output_configuration(),
+            // Retry and legacy output buffer change carry no buffer.
+            -3 | -1 => return Ok(None),
             value if value < 0 => {
                 return Err(codec_error(format!(
                     "dequeue output failed with status {value}"
@@ -267,6 +353,8 @@ unsafe extern "C" {
     ) -> i32;
     fn AMediaCodec_createInputSurface(codec: *mut c_void, surface: *mut *mut c_void) -> i32;
     fn AMediaCodec_start(codec: *mut c_void) -> i32;
+    fn AMediaCodec_setParameters(codec: *mut c_void, format: *const c_void) -> i32;
+    fn AMediaCodec_getOutputFormat(codec: *mut c_void) -> *mut c_void;
     fn AMediaCodec_stop(codec: *mut c_void) -> i32;
     fn AMediaCodec_delete(codec: *mut c_void) -> i32;
     fn AMediaCodec_dequeueOutputBuffer(
@@ -279,6 +367,15 @@ unsafe extern "C" {
     fn AMediaFormat_new() -> *mut c_void;
     fn AMediaFormat_delete(format: *mut c_void) -> i32;
     fn AMediaFormat_setInt32(format: *mut c_void, name: *const c_char, value: i32);
+    fn AMediaFormat_setInt64(format: *mut c_void, name: *const c_char, value: i64);
+    fn AMediaFormat_setFloat(format: *mut c_void, name: *const c_char, value: f32);
+    fn AMediaFormat_getInt32(format: *mut c_void, name: *const c_char, value: *mut i32) -> bool;
+    fn AMediaFormat_getBuffer(
+        format: *mut c_void,
+        name: *const c_char,
+        data: *mut *mut c_void,
+        size: *mut usize,
+    ) -> bool;
     fn AMediaFormat_setString(format: *mut c_void, name: *const c_char, value: *const c_char);
 }
 

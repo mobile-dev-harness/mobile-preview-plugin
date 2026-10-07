@@ -4,6 +4,17 @@
 #[allow(unsafe_code)]
 mod codec;
 
+#[cfg(target_os = "android")]
+#[allow(unsafe_code)]
+mod platform;
+
+#[cfg(target_os = "android")]
+#[allow(unsafe_code)]
+mod native;
+
+#[cfg(any(target_os = "android", test))]
+mod wire;
+
 #[cfg(any(target_os = "android", test))]
 mod validation;
 

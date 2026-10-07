@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { API_PATH, apply, createHandler, resolveConfig, validateSession } from '../index.js';
+import { API_PATH, MEDIA_PATH, apply, createHandler, resolveConfig, validateSession } from '../index.js';
 
 const config = { executable: '/tmp/mpp' };
 const request = body => new Request(`http://localhost${API_PATH}`, {
@@ -83,12 +83,14 @@ test('conversation validation observes metadata, disposes it and preserves failu
 
 test('plugin registers only its authenticated DSH route and awaited lifecycle cleanup', async () => {
   const cleanup = [];
-  let route;
+  const routes = [];
   apply({
     sessionQuery: {},
     effect(setup) { cleanup.push(setup()); },
-    connection: { fetch: { register(value) { route = value; } } },
+    connection: { fetch: { register(value) { routes.push(value); } } },
   }, config);
+  assert.deepEqual(routes.map(item => item.path), [API_PATH, MEDIA_PATH]);
+  const route = routes[0];
   assert.equal(route.path, API_PATH);
   assert.deepEqual(route.methods, ['POST']);
   assert.equal(route.requestBody, 'buffered');
@@ -96,4 +98,28 @@ test('plugin registers only its authenticated DSH route and awaited lifecycle cl
   assert.equal(response.status, 200);
   assert.equal(typeof (await response.json()).result.client, 'string');
   await Promise.all(cleanup.map(dispose => dispose()));
+});
+
+test('media route streams bytes through the same cancellation signal without JSON conversion', async () => {
+  const req = request(JSON.stringify({ client: 'client', binding: 'binding', stream: 'stream' }));
+  let observedSignal;
+  const handler = createHandler({ openMedia: async (params, { signal }) => {
+    assert.equal(params.stream, 'stream'); observedSignal = signal;
+    return new ReadableStream({ start(controller) {
+      controller.enqueue(Uint8Array.of(0x4d, 0x50, 0x50, 0x31)); controller.close();
+    } });
+  } }, true);
+  const response = await handler(req);
+  assert.equal(observedSignal, req.signal);
+  assert.equal(response.headers.get('content-type'), 'application/octet-stream');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual([...new Uint8Array(await response.arrayBuffer())], [0x4d, 0x50, 0x50, 0x31]);
+});
+
+test('capture configuration is bounded and cannot accept relative assets or odd encoder sizes', () => {
+  assert.equal(resolveConfig({ ...config, deviceAssets: '/tmp/assets' }).videoMaxSize, 1280);
+  for (const extra of [{ deviceAssets: 'assets' }, { videoMaxSize: 257 },
+    { videoBitRate: 20_000_001 }, { videoMaxFps: 61 }, { previewTimeoutMs: 1000 }]) {
+    assert.throws(() => resolveConfig({ ...config, ...extra }));
+  }
 });

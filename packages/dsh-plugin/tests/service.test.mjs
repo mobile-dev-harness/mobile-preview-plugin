@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { setTimeout as sleep } from 'node:timers/promises';
 import test from 'node:test';
 import { ConnectionService, ServiceError } from '../src/host/service.mjs';
+import { PreviewPool } from '../src/host/preview.mjs';
 
 const error = (code) => new ServiceError(code, code);
 const deferred = () => {
@@ -90,6 +91,22 @@ test('one host owns conflicts across clients and conversations; remount returns 
   assert.deepEqual(await f.call('session.list', { client: first, sessionId: 'chat-a' }), connected);
   assert.equal(await f.call('session.list', { client: second, sessionId: 'chat-a' }), null);
   assert.deepEqual(await f.call('session.status', { client: first, binding: connected.binding }), connected);
+});
+
+test('preview cleanup failure invalidates the host instead of stranding an invisible lease', async t => {
+  const f = fixture(t);
+  const client = await f.open();
+  const connected = await f.connect(client);
+  const original = PreviewPool.prototype.stopBinding;
+  try {
+    PreviewPool.prototype.stopBinding = async () => { throw error('CLEANUP_FAILED'); };
+    await assert.rejects(f.call('session.disconnect', { client, binding: connected.binding }), { code: 'CLEANUP_FAILED' });
+    assert.equal(f.bridges[0].closed, true);
+    assert.equal(f.bridges[0].leases.size, 0);
+  } finally { PreviewPool.prototype.stopBinding = original; }
+  const replacement = await f.connect(client);
+  assert.equal(f.bridges.length, 2);
+  assert.equal(replacement.session.state, 'transport_ready');
 });
 
 test('rejects forged fields, foreign bindings and stale handles without trusting browser ownership', async (t) => {

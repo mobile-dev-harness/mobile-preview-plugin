@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -31,9 +31,9 @@ createInterface({ input:process.stdin }).on('line', async (line) => {
   return executable;
 }
 
-async function connected(t, body, hello) {
+async function connected(t, body, hello, options = {}) {
   const executable = await fixture(t, body, hello);
-  const bridge = await createBridge({ executable });
+  const bridge = await createBridge({ executable, ...options });
   t.after(() => bridge.close());
   return bridge;
 }
@@ -252,10 +252,27 @@ test('close forcefully reaps a child that ignores SIGTERM', async (t) => {
     process.on('SIGTERM', () => {});
     setInterval(() => {}, 1000);
     reply(request, {pid:process.pid});
-  `);
+  `, undefined, { shutdownTimeoutMs: 100 });
   const { pid } = await bridge.request('devices.list');
   await bridge.close();
   assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+});
+
+test('close allows asynchronous resource cleanup beyond one second before reaping the host', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'mpp cleanup '));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const marker = join(directory, 'released');
+  const executable = await fixture(t, 'reply(request, {});', {}, `
+    import {writeFileSync} from 'node:fs';
+    process.on('SIGTERM', () => setTimeout(() => {
+      writeFileSync(${JSON.stringify(marker)}, 'released'); process.exit(0);
+    }, 1300));
+    setInterval(() => {}, 1000);
+  `);
+  const bridge = await createBridge({ executable, shutdownTimeoutMs: 5000 });
+  t.after(() => bridge.close());
+  await bridge.close();
+  assert.equal(await readFile(marker, 'utf8'), 'released');
 });
 
 test('pending work is bounded and close rejects the entire queue', async (t) => {

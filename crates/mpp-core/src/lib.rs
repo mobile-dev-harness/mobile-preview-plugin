@@ -6,6 +6,7 @@ mod input;
 mod lease;
 
 pub mod media;
+pub mod stream;
 
 pub use device::{Capabilities, Device, DeviceKind, DeviceState, Inventory, Platform};
 pub use error::{Error, Result};

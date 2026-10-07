@@ -10,7 +10,7 @@ export const DEFAULT_TIMEOUT_MS = 15_000;
 export const BOOT_TIMEOUT_MS = 130_000;
 export const EXPECTED_METHODS = Object.freeze([
   'hello', 'devices.list', 'emulator.start', 'session.connect',
-  'session.status', 'session.disconnect', 'preview.start', 'input.send',
+  'session.status', 'session.disconnect', 'preview.start', 'preview.stop', 'input.send',
 ]);
 
 const MAX_PENDING = 64;
@@ -70,17 +70,21 @@ async function executablePath(value, field) {
 
 /** Launch one local host. No executable paths or environment values come from requests. */
 export async function createBridge(config) {
-  if (!record(config) || Object.keys(config).some((key) => !['executable', 'adb', 'emulator'].includes(key))) {
+  if (!record(config) || Object.keys(config).some((key) => !['executable', 'adb', 'emulator', 'shutdownTimeoutMs'].includes(key))) {
     throw failure('INVALID_CONFIG', 'Expected executable and optional adb/emulator paths.');
   }
   const executable = await executablePath(config.executable, 'executable');
+  const shutdownTimeoutMs = config.shutdownTimeoutMs ?? 30_000;
+  if (!Number.isSafeInteger(shutdownTimeoutMs) || shutdownTimeoutMs < 1 || shutdownTimeoutMs > 60_000) {
+    throw failure('INVALID_CONFIG', 'shutdownTimeoutMs must be an integer in 1..60000.');
+  }
   const args = [];
   for (const key of ['adb', 'emulator']) {
     if (config[key] !== undefined) args.push(`--${key}`, await executablePath(config[key], key));
   }
   args.push('serve', '--stdio');
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => ENVIRONMENT_KEYS.has(key.toUpperCase())));
-  const bridge = new MppBridge(executable, args, env);
+  const bridge = new MppBridge(executable, args, env, shutdownTimeoutMs);
   try {
     const hello = await bridge.request('hello');
     if (!record(hello) || hello.control_protocol !== 'mpp/v1'
@@ -108,9 +112,11 @@ export class MppBridge extends EventEmitter {
   #startup = true;
   #exited;
   #killTimer;
+  #shutdownTimeoutMs;
 
-  constructor(executable, args, env) {
+  constructor(executable, args, env, shutdownTimeoutMs = 30_000) {
     super();
+    this.#shutdownTimeoutMs = shutdownTimeoutMs;
     this.#child = spawn(executable, args, { env, shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     this.#exited = new Promise((resolve) => {
       this.#child.once('close', () => {
@@ -186,12 +192,12 @@ export class MppBridge extends EventEmitter {
     }
     this.#pending.clear();
     this.#buffer = Buffer.alloc(0);
-    this.#child.stdin.destroy();
-    this.#child.stdout.destroy();
-    this.#child.stderr.destroy();
+    this.#child.stdin.end();
+    // Keep draining output while Rust cancels startup and releases device resources.
+    // SIGTERM is handled by the Rust host; SIGKILL is only a final bounded fallback.
     if (this.#child.exitCode === null && this.#child.signalCode === null) {
       this.#child.kill('SIGTERM');
-      this.#killTimer = setTimeout(() => this.#child.kill('SIGKILL'), 1_000);
+      this.#killTimer = setTimeout(() => this.#child.kill('SIGKILL'), this.#shutdownTimeoutMs);
       this.#killTimer.unref();
     }
     this.emit('invalidated', error);

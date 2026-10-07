@@ -5,7 +5,7 @@ use mpp_android::Android;
 use mpp_core::{Error, Result};
 use mpp_host::{Host, Response, value};
 
-const HELP: &str = "Mobile Preview Plugin — Rust framework\n\nUsage: mpp [--adb PATH] [--emulator PATH] COMMAND\n\n  devices                 List devices and available AVDs as JSON\n  probe --device SERIAL   Check one Android transport; does not acquire a session\n  boot --avd NAME         Explicitly start an existing AVD and await Android boot\n  serve --stdio           Serve mpp/v1 JSON-lines; leases live until disconnect/EOF\n  --version               Print version\n\nVideo capture and input injection are not implemented in this framework increment.";
+const HELP: &str = "Mobile Preview Plugin — Rust framework\n\nUsage: mpp [--adb PATH] [--emulator PATH] COMMAND\n\n  devices                 List devices and available AVDs as JSON\n  probe --device SERIAL   Check one Android transport; does not acquire a session\n  boot --avd NAME         Explicitly start an existing AVD and await Android boot\n  serve --stdio           Serve mpp/v1 JSON-lines; leases live until disconnect/EOF\n  --version               Print version\n\nLive preview requires the DSH plugin and Android device assets (API 32, arm64).";
 
 struct Cli {
     adb: Option<PathBuf>,
@@ -65,8 +65,25 @@ fn print(result: Result<serde_json::Value>) -> ExitCode {
     }
 }
 
-#[tokio::main]
-async fn main() -> ExitCode {
+fn main() -> ExitCode {
+    let runtime = match tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            eprintln!("Cannot initialize the local runtime: {error}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let status = runtime.block_on(run());
+    // Host teardown has awaited owned resources. Tokio's blocking stdin read may still await
+    // a writer after SIGTERM; it must not keep this process alive after graceful cleanup.
+    runtime.shutdown_timeout(std::time::Duration::from_millis(100));
+    status
+}
+
+async fn run() -> ExitCode {
     let cli = match parse() {
         Ok(cli) => cli,
         Err(error) => return print(Err(error)),

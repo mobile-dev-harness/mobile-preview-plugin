@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
+import { PreviewPool } from './preview.mjs';
 
 export class ServiceError extends Error {
   constructor(code, message, hint = 'Reconnect the device from the current conversation and retry.') {
@@ -18,6 +19,10 @@ const fields = Object.freeze({
   'session.connect': ['client', 'sessionId', 'device'],
   'session.status': ['client', 'binding'], 'session.disconnect': ['client', 'binding'],
   'session.list': ['client', 'sessionId'],
+  'preview.start': ['client', 'binding'],
+  'preview.stop': ['client', 'binding', 'stream'],
+  'preview.media': ['client', 'binding', 'stream'],
+  'input.send': ['client', 'binding', 'stream', 'requests'],
 });
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const missingSession = (error) => ['NOT_FOUND', 'SESSION_NOT_FOUND'].includes(error?.code);
@@ -40,7 +45,7 @@ function parse(body) {
     || allowed.some((key) => !Object.hasOwn(params, key))) {
     throw fail('INVALID_ARGUMENT', 'Unexpected or missing request parameters.');
   }
-  for (const name of ['client', 'binding']) {
+  for (const name of ['client', 'binding', 'stream']) {
     if (name in params && (typeof params[name] !== 'string' || !/^[A-Za-z0-9_-]{43}$/u.test(params[name]))) {
       throw fail('INVALID_ARGUMENT', `${name} must be a service-issued token.`);
     }
@@ -60,14 +65,16 @@ export class ConnectionService {
   #bridge; #starting; #closing; #clients = new Map(); #bindings = new Map();
   #tail = Promise.resolve(); #wireTail = Promise.resolve(); #pending = 0; #disposed = false; #disposing;
   #salt = token(); #timer;
+  #previews;
 
   constructor({ createBridge, bridgeConfig, validateSession, requestTimeoutMs = 15_000,
     bootTimeoutMs = 130_000, heartbeatMs = 15_000, leaseTtlMs = 45_000,
-    sweepIntervalMs = 1_000, maxClients = 32 }) {
+    sweepIntervalMs = 1_000, maxClients = 32, previewTimeoutMs = 45_000,
+    deviceAssets, videoMaxSize = 1280, videoBitRate = 4_000_000, videoMaxFps = 30 }) {
     if (typeof createBridge !== 'function' || typeof validateSession !== 'function') {
       throw fail('INVALID_CONFIG', 'Bridge creation and conversation validation are required.');
     }
-    const options = { requestTimeoutMs, bootTimeoutMs, heartbeatMs, leaseTtlMs, sweepIntervalMs, maxClients };
+    const options = { requestTimeoutMs, bootTimeoutMs, heartbeatMs, leaseTtlMs, sweepIntervalMs, maxClients, previewTimeoutMs };
     for (const [name, value] of Object.entries(options)) {
       if (!Number.isSafeInteger(value) || value < 1 || value > (name === 'maxClients' ? 32 : 600_000)) {
         throw fail('INVALID_CONFIG', `Invalid ${name}.`);
@@ -78,6 +85,10 @@ export class ConnectionService {
     this.#bridgeConfig = bridgeConfig;
     this.#validateSession = validateSession;
     this.#options = options;
+    this.#previews = new PreviewPool({
+      assetsDir: deviceAssets, maxSize: videoMaxSize, bitRate: videoBitRate, maxFps: videoMaxFps,
+      rpc: (binding, method, params, timeoutMs) => this.#wire(binding.bridge, method, params, timeoutMs),
+    });
     this.#timer = setInterval(() => { this.sweep().catch(() => {}); }, sweepIntervalMs);
     this.#timer.unref();
   }
@@ -107,7 +118,8 @@ export class ConnectionService {
         controller: new AbortController(), closed: false });
       return { client, host: hostname(), heartbeatMs: this.#options.heartbeatMs,
         leaseTtlMs: this.#options.leaseTtlMs, requestTimeoutMs: this.#options.requestTimeoutMs,
-        bootTimeoutMs: this.#options.bootTimeoutMs, capabilities: { video: false, input: false } };
+        bootTimeoutMs: this.#options.bootTimeoutMs, previewTimeoutMs: this.#options.previewTimeoutMs,
+        capabilities: { video: Boolean(this.#previews.available), input: Boolean(this.#previews.available) } };
     }
     const client = this.#clients.get(params.client);
     if (!client || client.closed) throw fail('CLIENT_EXPIRED', 'The mobile preview client is no longer active.');
@@ -125,11 +137,33 @@ export class ConnectionService {
       await this.#audit(client, signal);
       return { alive: true };
     }
-    const timeoutMs = method === 'emulator.start' ? this.#options.bootTimeoutMs : this.#options.requestTimeoutMs;
+    if (method === 'preview.media') throw fail('INVALID_ARGUMENT', 'Use the binary media endpoint.');
+    if (method === 'input.send' || method === 'preview.stop') {
+      const binding = await this.#previewBinding(client, params.binding, signal);
+      // Live control must not wait behind the globally serialized boot/discovery queue.
+      return method === 'input.send'
+        ? this.#previews.input(binding, params.stream, params.requests, signal)
+        : this.#previews.stop(binding, params.stream);
+    }
+    const timeoutMs = method === 'emulator.start' ? this.#options.bootTimeoutMs
+      : method === 'preview.start' ? this.#options.previewTimeoutMs : this.#options.requestTimeoutMs;
     return this.#schedule(client, signal, timeoutMs, async (ctx) => {
       if (method === 'devices.list') return this.#request(ctx, 'devices.list', {});
       if (method === 'emulator.start') return this.#request(ctx, method, { avd: params.avd, consent: true });
       if (method === 'session.connect') return this.#connect(client, params, ctx);
+      if (method === 'preview.start') {
+        const binding = await this.#previewBinding(client, params.binding, ctx.signal);
+        ctx.check();
+        try {
+          const result = await this.#previews.start(binding, { signal: ctx.signal });
+          ctx.check();
+          return result;
+        } catch (error) {
+          if (error?.code === 'PROTOCOL_ERROR') await this.#dropBridge(binding.bridge);
+          if (ctx.signal.aborted) await this.#previews.stopBinding(binding);
+          throw error;
+        }
+      }
       let binding;
       if (method === 'session.list') {
         binding = [...this.#bindings.values()].find((item) => item.client === client && item.sessionId === params.sessionId);
@@ -160,7 +194,10 @@ export class ConnectionService {
       catch (error) {
         // Rust drops the lease on every completed probe failure, including unplug errors.
         // Cancellation before the request is sent must preserve an existing valid binding.
-        if (ctx.failedMethod === 'session.status') this.#bindings.delete(binding.token);
+        if (ctx.failedMethod === 'session.status') {
+          this.#bindings.delete(binding.token);
+          await this.#previews.stopBinding(binding);
+        }
         throw error;
       }
       ctx.check();
@@ -200,6 +237,12 @@ export class ConnectionService {
 
   async #release(binding) {
     if (binding.token) this.#bindings.delete(binding.token);
+    try { await this.#previews.stopBinding(binding); }
+    catch (error) {
+      // A lost browser binding must never leave a live, unreachable Rust lease.
+      await this.#dropBridge(binding.bridge);
+      throw error;
+    }
     if (binding.bridge.closed) return null;
     try {
       return await this.#wire(binding.bridge, 'session.disconnect', this.#lease(binding), this.#options.requestTimeoutMs);
@@ -208,6 +251,33 @@ export class ConnectionService {
       await this.#dropBridge(binding.bridge);
       throw error;
     }
+  }
+
+  async #previewBinding(client, key, signal) {
+    const binding = this.#bindings.get(key);
+    if (!binding || binding.client !== client) throw fail('STALE_SESSION', 'The device binding is not owned by this client.');
+    try { await this.#validate(binding.sessionId, signal); }
+    catch (error) {
+      if (missingSession(error)) await this.#release(binding);
+      throw error;
+    }
+    if (signal?.aborted) throw fail('ABORTED', 'The preview request was cancelled.');
+    if (this.#disposed || client.closed || Date.now() >= client.expires
+      || this.#bindings.get(key) !== binding || binding.bridge.closed) {
+      throw fail('STALE_SESSION', 'The device connection is no longer active.');
+    }
+    return binding;
+  }
+
+  /** Return media only after authorizing the same client and conversation binding. */
+  async openMedia(params, { signal } = {}) {
+    parse({ method: 'preview.media', params });
+    const client = this.#clients.get(params.client);
+    if (!client || client.closed || Date.now() >= client.expires) {
+      throw fail('CLIENT_EXPIRED', 'The mobile preview client is no longer active.');
+    }
+    const binding = await this.#previewBinding(client, params.binding, signal);
+    return this.#previews.media(binding, params.stream, signal);
   }
 
   async #validate(sessionId, signal) {
@@ -284,7 +354,10 @@ export class ConnectionService {
             this.#bridge = undefined;
             this.#closing = Promise.resolve(bridge.close()).catch(() => {});
           }
-          for (const [key, binding] of this.#bindings) if (binding.bridge === bridge) this.#bindings.delete(key);
+          for (const [key, binding] of this.#bindings) if (binding.bridge === bridge) {
+            this.#bindings.delete(key);
+            this.#previews.stopBinding(binding).catch(() => {});
+          }
         });
         this.#bridge = bridge;
         return bridge;
@@ -296,7 +369,10 @@ export class ConnectionService {
   async #dropBridge(bridge) {
     if (!bridge) return;
     if (this.#bridge === bridge) this.#bridge = undefined;
-    for (const [key, binding] of this.#bindings) if (binding.bridge === bridge) this.#bindings.delete(key);
+    for (const [key, binding] of this.#bindings) if (binding.bridge === bridge) {
+      this.#bindings.delete(key);
+      this.#previews.stopBinding(binding).catch(() => {});
+    }
     const closing = Promise.resolve(bridge.close());
     this.#closing = closing.catch(() => {});
     await closing;
@@ -381,6 +457,7 @@ export class ConnectionService {
     clearInterval(this.#timer);
     this.#disposing = (async () => {
       await Promise.all([...this.#clients.values()].map((client) => this.#endClient(client)));
+      await this.#previews.dispose();
       await this.#wireTail;
       await this.#dropBridge(this.#bridge);
       await this.#starting?.catch(() => {});

@@ -17,6 +17,7 @@ jobs:
         with:
           node-version: '22.19.0'
       - run: npm run check --prefix packages/dsh-plugin
+      - run: node --test scripts/tests/*.test.mjs
   check:
     strategy:
       fail-fast: false

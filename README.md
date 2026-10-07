@@ -7,12 +7,15 @@ devices to DeepSeek Harness Web and Desktop. The intended product provides live
 preview and input for emulators, simulators and physical devices, without requiring
 mobile-dev-harness (mdh).
 
-**Current status: Rust connection framework and local DSH development plugin.**
-Android discovery, explicit emulator startup, transport probing and session
-ownership are available through the CLI and a shared DSH Web/Desktop button and
-panel. Live video and input injection are not implemented. Connecting returns
-`transport_ready`: the selected adb transport was checked and reserved, but no
-video stream is available.
+**Current status: development preview with an Android video/control implementation.**
+The Rust backend and local DSH plugin provide device discovery, explicit emulator
+startup, session ownership, H.264 streaming and single-pointer/basic-key input.
+Live capture is currently restricted to **Android API 32 on arm64-v8a**, using a
+Unix host and a WebCodecs-capable client. Native, Web and Desktop checks on the
+target emulator are described below; they do not establish broad device
+compatibility or performance.
+`transport_ready` remains a device connection state; the visible panel starts
+preview automatically after a new connection, then reports actual decoding progress.
 
 ## Scope
 
@@ -22,8 +25,8 @@ video stream is available.
 | Start an explicitly selected Android AVD | Implemented |
 | Probe an exact serial and manage process-local session leases | Implemented |
 | JSON-lines control protocol and bounded binary media framing | Implemented |
-| Android NDK encoder lifecycle and output wrapper | Prototype; independent encoder probe |
-| Display capture, live video delivery/playback and device input | Not implemented |
+| Rust/JNI capture, NDK H.264 encoding and WebCodecs playback | Implemented for the API 32/arm64 development target |
+| Single-pointer input and basic Android keys | Implemented; Web/Desktop tap, drag and navigation verified on the target emulator |
 | DSH Web/Desktop connection button and device panel | Implemented; tested against the pinned source development baseline |
 | iOS Simulator and iOS physical devices | Planned; no backend yet |
 
@@ -74,9 +77,12 @@ returns a warning.
 The adapter lives in `packages/dsh-plugin`. It runs without mdh and adds no
 third-party Node dependencies; its UI uses DSH's runtime-provided React and UI
 services. Source DSH `0.2.1-alpha.1` at commit
-`5badb15009ae1756c3afe0ae0cef1faafc290ccc` is the current compatibility baseline.
+`5badb15009ae1756c3afe0ae0cef1faafc290ccc` is the base compatibility version.
+Automatic phone-width sizing additionally uses a local DSH UI extension; it is
+not part of that upstream commit or an officially merged API.
 
-After preparing that source checkout, run either surface from this repository:
+Build the [Android device assets](#android-device-build-and-encoder-probe), then
+prepare the pinned DSH source checkout and run either surface from this repository:
 
 ```sh
 node scripts/dev-dsh.mjs web --source /path/to/deepseek-harness --port 3081
@@ -86,18 +92,84 @@ node scripts/dev-dsh.mjs desktop --source /path/to/deepseek-harness
 The launcher uses separate development homes and Desktop user data under
 `target/dsh/`. It does not copy credentials or settings from existing profiles or
 require uninstalling the normal DSH app. See [DSH development](docs/DSH-DEVELOPMENT.md)
-for Node/pnpm prerequisites, first-time builds and local plugin loading.
+for Node/pnpm prerequisites, first-time builds, device assets and local plugin loading.
 
-The pinned source built successfully without DSH source changes. Both its Web UI
-and native Harness Dev Desktop loaded the button/panel and listed four local AVDs.
-The Web panel started `Pixel_6_API_32`, connected and disconnected it; the native
-Desktop panel also reached `transport_ready`. This verifies connection behavior,
-not streaming or device input. The adapter's 56 tests pass alongside the existing
-52 Rust tests; broader lifecycle and platform qualification remain separate checks.
+With the optional [sidebar-width patch](docs/DSH-DEVELOPMENT.md#automatic-sidebar-width-local-dsh-extension),
+MPP requests a width from the available height, phone aspect ratio and surrounding
+phone shell. DSH retains its layout limits and manual dragging takes priority.
+Leaving the active docked panel, entering fullscreen, splitting or floating it
+releases the temporary fit and restores the stored width preference. Unpatched DSH
+keeps manual sidebar sizing; video and input are unchanged. The earlier width-only
+Desktop check, before the phone shell, passed (95/100): at a 1280×820 CSS viewport,
+the panel shrank from 576 to 300 CSS
+pixels without reducing picture height. A manual 430-pixel width survived a change
+in available height; the guide restored that preference and returning to MPP fitted
+again. Fullscreen and window-height adaptation passed; split/float paths have unit
+coverage, not separate live verification. Local evidence is
+`target/dsh/evidence/desktop-adaptive-sidebar.png`.
 
-Ownership is process-local, so test the same device in Web and Desktop sequentially.
-Web operates on devices attached to the DSH Host machine. The panel registers no
-agent tools and does not grant model vision; its stdio bridge is internal, not MCP.
+The initial streaming qualification used the pinned DSH source without modifications.
+Both its Web UI and native Harness Dev Desktop loaded the button/panel and listed
+four local AVDs.
+On `Pixel_6_API_32`, Web decoded the actual H.264 stream; a canvas tap opened
+Settings → Apps, Back returned to Settings, dragging scrolled, and Home reached
+the launcher. Local screenshot evidence is in `target/dsh/evidence/web-live-control.jpg`.
+
+A native 600.1-second run remained healthy with the first 180 seconds static and
+Home press/release pairs every 30 seconds afterward. It reported one configuration
+packet, 8 keyframes, 228 delta frames and 1,184,670 bytes. Native checks also observed
+touch release at the 2.6-second watchdog check and after control EOF, expected stream
+termination on 90°/180° rotation, and 10/10 clean fresh start/stop cycles; device
+settings were restored. This sparse-change run is not a throughput or latency benchmark.
+
+Desktop decoded its first frame after the decoder-backpressure fix. Home moved
+Calendar → launcher; dragging opened the app drawer; taps opened Settings → Apps;
+Back returned to Settings. Sidebar resizing kept the preview live during about
+two minutes of interaction. A checked stop left no MPP native helper or owned adb
+reverse mapping. A clean Desktop process restart then reproduced a decoded live
+frame without temporary diagnostics. The final live-frame screenshot is
+`target/dsh/evidence/desktop-live-control.png`. Rejection of a competing capture
+also left the active stream uninterrupted. An earlier unexplained Web EOF did not
+recur during the native run or latest Web checks; its cause remains unresolved.
+These results do not establish broader platform or sustained end-to-end GUI
+reliability, and no throughput or latency claim is made.
+
+Select an API 32 arm64 emulator and choose **Connect**; the visible phone screen
+starts preview automatically. A chat retains its preview intent through resizing,
+temporary hiding/backgrounding and view replacement. Hiding suspends capture and
+releases input; returning to a visible view resumes after the old capture is cleaned
+up, provided the binding is still valid. **Pause** stays paused until **Resume**.
+Genuine errors block repeated attempts in the current visible view. **Retry**,
+**Resume**, or a new visible view/visibility return may make one fresh attempt
+while intent and binding remain valid; ordinary rerenders and heartbeats do not
+retry. Device rotation or geometry changes still end their capture epoch, and input
+is never replayed. Disconnect, expiry and plugin unload clear the intent. An expired
+device connection is not automatically reconnected.
+
+The screen sits inside a rounded metal-style phone rim with an earpiece and
+decorative side buttons. These are outside the actual screen and accept no input;
+canvas aspect ratio and touch coordinates still refer to device pixels. Auto-fit
+accounts for the rim, padding and outer gutter. This Connect/resume and phone-frame
+update is MPP-only; it reuses the optional DSH width extension.
+
+Desktop runtime checks reached Live after **Connect** alone. Tapping Apps in the
+framed Settings screen opened Apps, and Home worked. Resizing and OS window zoom
+kept Live with the same helper process within each check. Collapsing/reopening the
+panel resumed automatically after cleanup without BUSY. Explicit Pause left zero
+helpers and stayed paused across collapse/reopen; Resume returned to Live. Background
+document events have unit coverage, but actual OS minimize/background return was
+not separately tested. The earlier unchanged-height result predates the shell,
+whose chrome now consumes some available height. Local evidence is
+`target/dsh/evidence/desktop-auto-preview-device-frame.png`. Visual review passed
+(96/100): the rim, earpiece and side buttons stay outside the screen, with no
+stretching or decoration obscuring the status bar/app content. Controls remain
+readable and the sidebar stays compact.
+
+Connection leases are process-local; the native helper also rejects competing MPP
+capture processes on the same device. This does not block external adb or physical
+touches. Test the same device in Web and Desktop sequentially. Web operates on
+devices attached to the DSH Host machine. The panel registers no agent tools and
+does not grant model vision; its stdio bridge is internal, not MCP.
 
 ## Local host contract
 
@@ -134,33 +206,37 @@ The workspace contains four crates:
 
 | Crate | Responsibility |
 | --- | --- |
-| `mpp-core` | Device types, session leases, input validation and media framing; no platform I/O |
-| `mpp-android` | Android SDK discovery and bounded adb/emulator subprocesses |
-| `mpp-android-device` | Device-side Rust NDK MediaCodec lifecycle, input surface and encoded-output wrapper |
-| `mpp-host` | `mpp` CLI and persistent stdio host |
+| `mpp-core` | Device/session types, capture epochs, input state and media framing; no platform I/O |
+| `mpp-android` | SDK/device discovery, lifecycle, helper deployment and authenticated channel setup |
+| `mpp-android-device` | Rust/JNI Android capture/input and NDK H.264 encoding |
+| `mpp-host` | `mpp` CLI, stdio lifecycle protocol and private media/control relays |
 
-Tokio, Serde, serde_json and thiserror are the approved foundation dependencies.
-Rust owns device and media behavior. The small JavaScript adapter binds its sessions
-to DSH conversations and provides the shared Web/Desktop UI.
+Tokio, Serde, serde_json and thiserror are the foundation dependencies; `jni` 0.22
+and a tiny Java bootstrap were additionally approved for Android framework access.
+Java initializes the runtime and loads Rust; capture, media, transport and input
+remain in Rust. The JavaScript adapter binds sessions to DSH conversations and
+provides the shared Web/Desktop UI.
 
 ```sh
 cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 npm --prefix packages/dsh-plugin run check
+node --test scripts/tests/build-android-device.test.mjs
 ```
 
 Default tests require no device, Android SDK or network. They exercise protocol,
 ownership, framing and subprocess behavior; passing them is not a live-video or
 performance validation.
 
-### Android encoder probe
+### Android device build and encoder probe
 
-The device-side prototype can be cross-built on macOS or Linux x86_64 for Android
-API 32 or later, `aarch64-linux-android`; only API 32 has been tested. It requires
-an installed Android NDK and the Rust target for the selected compiler. The script
-uses `--locked` and may fetch locked Cargo dependencies; it installs neither SDK
-components nor Rust toolchains/targets:
+Build on macOS or Linux x86_64 with an installed Android NDK, the Rust
+`aarch64-linux-android` target, JDK 17 or later, Android Build Tools with D8 and an
+Android platform `android.jar` at API 32 or later. The output has minimum API 32;
+the live backend nevertheless checks for **exactly API 32/arm64** because its
+hidden framework APIs have not been qualified on other versions. The script uses
+`--locked`, may fetch Cargo dependencies, and installs no SDK or Rust components:
 
 ```sh
 ./scripts/build-android-device.sh
@@ -169,11 +245,21 @@ components nor Rust toolchains/targets:
 Set `CARGO_NET_OFFLINE=true` to build without network access when dependencies are
 already cached.
 
-Set `ANDROID_NDK_HOME` to select an installed NDK. If the target is installed under
+Set `ANDROID_NDK_HOME` and `JAVA_HOME` to select installed toolchains.
+`MPP_BUILD_TOOLS` can select an absolute build-tools version directory;
+`MPP_ANDROID_JAR` can select an absolute platform JAR. If the Rust target is under
 a different toolchain, select it explicitly, for example
-`RUSTUP_TOOLCHAIN=1.88 ./scripts/build-android-device.sh`. The script prints paths
-to `libmpp_android_device.so` and the `codec_probe` executable; by default they are
-under `target/aarch64-linux-android/debug/`.
+`RUSTUP_TOOLCHAIN=1.88 ./scripts/build-android-device.sh`. The script compiles the
+bootstrap with `javac --release 8`, converts it with D8, and prints three artifacts:
+
+```text
+target/android-device/bootstrap.jar
+target/android-device/libmpp_android_device.so
+target/aarch64-linux-android/debug/examples/codec_probe
+```
+
+`CARGO_TARGET_DIR` relocates all outputs. Set `MPP_DEVICE_ASSETS` to the absolute
+`android-device` output directory when launching DSH with relocated assets.
 
 To run the probe, choose an authorized arm64 Android device running API 32 or later.
 Read its numeric `transport_id` from `adb devices -l` and replace `1` below. Using
@@ -193,14 +279,14 @@ On success the probe reports JSON with `encoder`, `input_surface`,
 `capture_verified: false` and optional `first_output` metadata. It exercises encoder
 creation, its input surface and output polling; it does not attach the display to
 that surface. Encoder initialization or output metadata proves neither screen
-capture nor hardware acceleration. The platform capture bridge remains undecided;
-`preview.start` and `input.send` in the host still return `UNSUPPORTED`.
+capture nor hardware acceleration. The actual preview uses the separate bootstrap
+and native capture path; the probe's `capture_verified: false` is intentional.
 
 Three consecutive probe runs on the `Pixel_6_API_32` emulator (Android API 32,
 arm64-v8a) completed the encoder lifecycle, reporting `encoder: "video/avc"`,
 `input_surface: true`, `capture_verified: false` and `first_output: null` each time.
-This verifies configure/create-input-surface/start/dequeue/stop/release only; no
-encoded frames or display capture were demonstrated.
+Those historical probe runs verified configure/create-input-surface/start/dequeue/
+stop/release only, not the current live-video path.
 
 This repository is in development and its crates have `publish = false`. No public
 package release or license has been selected. Official DSH distribution is a future

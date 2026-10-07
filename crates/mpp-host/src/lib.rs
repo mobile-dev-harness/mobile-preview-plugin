@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 
+pub mod streams;
+use streams::{PreviewManager, PreviewOptions};
+
 pub const SCHEMA: &str = "mpp/v1";
 pub const MAX_REQUEST_BYTES: usize = 65_536;
 
@@ -105,6 +108,61 @@ struct Boot {
     consent: bool,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreviewStart {
+    owner: String,
+    session: String,
+    generation: u64,
+    bootstrap: Option<std::path::PathBuf>,
+    library: Option<std::path::PathBuf>,
+    socket_dir: Option<std::path::PathBuf>,
+    stream_id: Option<String>,
+    token: Option<String>,
+    max_size: Option<u32>,
+    bit_rate: Option<u32>,
+    max_fps: Option<u32>,
+}
+
+impl PreviewStart {
+    fn options(self) -> Result<PreviewOptions> {
+        if self.bootstrap.is_none()
+            && self.library.is_none()
+            && self.socket_dir.is_none()
+            && self.stream_id.is_none()
+            && self.token.is_none()
+        {
+            return Err(Error::Unsupported {
+                feature: "live preview requires configured Android device assets".into(),
+            });
+        }
+        let missing = || Error::InvalidArgument {
+            message: "preview.start requires bootstrap, library, socket_dir, stream_id and token"
+                .into(),
+        };
+        Ok(PreviewOptions {
+            bootstrap: self.bootstrap.ok_or_else(missing)?,
+            library: self.library.ok_or_else(missing)?,
+            socket_dir: self.socket_dir.ok_or_else(missing)?,
+            stream_id: self.stream_id.ok_or_else(missing)?,
+            token: self.token.ok_or_else(missing)?,
+            max_size: self.max_size.unwrap_or(1280),
+            bit_rate: self.bit_rate.unwrap_or(4_000_000),
+            max_fps: self.max_fps.unwrap_or(30),
+        })
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PreviewStop {
+    owner: String,
+    session: String,
+    generation: u64,
+    stream_id: String,
+    epoch: u64,
+}
+
 fn params<T: serde::de::DeserializeOwned>(value: Value) -> Result<T> {
     serde_json::from_value(value).map_err(|error| Error::InvalidArgument {
         message: format!("invalid parameters: {error}"),
@@ -120,6 +178,7 @@ pub fn value<T: Serialize>(data: T) -> Result<Value> {
 pub struct Host {
     android: Android,
     leases: LeaseManager,
+    previews: PreviewManager,
 }
 
 impl Host {
@@ -127,6 +186,7 @@ impl Host {
         Self {
             android,
             leases: LeaseManager::new(),
+            previews: PreviewManager::default(),
         }
     }
 
@@ -166,9 +226,9 @@ impl Host {
                     "version": env!("CARGO_PKG_VERSION"),
                     "control_protocol": SCHEMA,
                     "media_protocol": "MPP1",
-                    "methods": ["hello", "devices.list", "emulator.start", "session.connect", "session.status", "session.disconnect", "preview.start", "input.send"],
-                    "video_backend": "not_implemented",
-                    "input_backend": "not_implemented"
+                    "methods": ["hello", "devices.list", "emulator.start", "session.connect", "session.status", "session.disconnect", "preview.start", "preview.stop", "input.send"],
+                    "video_backend": "requires_device_assets",
+                    "input_backend": "requires_device_assets"
                 }))
             }
             "devices.list" => {
@@ -232,6 +292,7 @@ impl Host {
                         if device.transport_id == session.device.transport_id
                             && device.avd == session.device.avd => {}
                     result => {
+                        let _ = self.previews.stop_session(&session).await;
                         let _ = self.leases.disconnect(&p.owner, &p.session, p.generation);
                         return Err(result.err().unwrap_or(Error::StaleSession));
                     }
@@ -240,21 +301,34 @@ impl Host {
             }
             "session.disconnect" => {
                 let p: Lease = params(input)?;
-                value(self.leases.disconnect(&p.owner, &p.session, p.generation)?)
+                let session = self.lease(&p)?;
+                let stopped = self.previews.stop_session(&session).await;
+                let disconnected = self.leases.disconnect(&p.owner, &p.session, p.generation)?;
+                stopped?;
+                value(disconnected)
             }
             "preview.start" => {
-                let p: Lease = params(input)?;
-                self.lease(&p)?;
-                Err(Error::Unsupported {
-                    feature: "live video capture (platform backend not implemented)".into(),
-                })
+                let p: PreviewStart = params(input)?;
+                let session = self.leases.status(&p.owner, &p.session, p.generation)?;
+                value(
+                    self.previews
+                        .start(&self.android, &session, p.options()?)
+                        .await?,
+                )
+            }
+            "preview.stop" => {
+                let p: PreviewStop = params(input)?;
+                let session = self.leases.status(&p.owner, &p.session, p.generation)?;
+                self.previews.stop(&session, &p.stream_id, p.epoch).await?;
+                Ok(serde_json::json!({"stopped":true}))
             }
             "input.send" => {
                 let p: SendInput = params(input)?;
                 self.leases.status(&p.owner, &p.session, p.generation)?;
                 p.event.validate()?;
                 Err(Error::Unsupported {
-                    feature: "device input injection (platform backend not implemented)".into(),
+                    feature: "input over lifecycle stdio; use the active preview control socket"
+                        .into(),
                 })
             }
             _ => Err(Error::Unsupported {
@@ -269,7 +343,16 @@ impl Host {
     }
 
     pub fn close(&mut self) {
+        self.previews.signal_all();
         self.leases.disconnect_all();
+    }
+
+    pub async fn shutdown(&mut self) {
+        self.close();
+        let _ = tokio::join!(
+            self.previews.shutdown(),
+            self.android.shutdown_stream_starts(),
+        );
     }
 }
 
@@ -322,20 +405,61 @@ where
     W: AsyncWrite + Unpin,
 {
     let result = async {
-        while let Some(frame) = read_request(&mut input).await? {
-            let response = match frame {
-                Some(bytes) => host.request(&bytes).await,
-                None => oversized(),
-            };
-            let mut bytes = serde_json::to_vec(&response).map_err(std::io::Error::other)?;
-            bytes.push(b'\n');
-            output.write_all(&bytes).await?;
-            output.flush().await?;
+        #[cfg(unix)]
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+        let terminated = async {
+            #[cfg(unix)]
+            terminate.recv().await;
+            #[cfg(not(unix))]
+            std::future::pending::<()>().await;
+        };
+        // Match the adapter's bounded pending limit while continuing to observe owner EOF.
+        let (send, mut receive) = tokio::sync::mpsc::channel(64);
+        let (eof_send, mut eof_receive) = tokio::sync::watch::channel(false);
+        let read = async {
+            while let Some(frame) = read_request(&mut input).await? {
+                if send.send(frame).await.is_err() {
+                    return Ok::<(), Error>(());
+                }
+            }
+            eof_send.send_replace(true);
+            drop(send);
+            Ok(())
+        };
+        let respond = async {
+            while let Some(frame) = receive.recv().await {
+                let response = match frame {
+                    Some(bytes) => {
+                        let starts_preview = serde_json::from_slice::<Request>(&bytes)
+                            .is_ok_and(|request| request.method == "preview.start");
+                        if starts_preview {
+                            // A preview cannot outlive its owner. Normal buffered requests still drain.
+                            tokio::select! {
+                                biased;
+                                _ = eof_receive.wait_for(|eof| *eof) => return Ok::<(), Error>(()),
+                                response = host.request(&bytes) => response,
+                            }
+                        } else {
+                            host.request(&bytes).await
+                        }
+                    }
+                    None => oversized(),
+                };
+                let mut bytes = serde_json::to_vec(&response).map_err(std::io::Error::other)?;
+                bytes.push(b'\n');
+                output.write_all(&bytes).await?;
+                output.flush().await?;
+            }
+            Ok(())
+        };
+        tokio::select! {
+            _ = terminated => Ok(()),
+            result = async { tokio::try_join!(read, respond)?; Ok(()) } => result,
         }
-        Ok(())
     }
     .await;
-    host.close();
+    host.shutdown().await;
     result
 }
 

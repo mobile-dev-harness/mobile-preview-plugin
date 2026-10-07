@@ -20,7 +20,8 @@ const HELP = `Usage: node scripts/dev-dsh.mjs web|desktop --source ABS_DSH_ROOT 
 --port          Web port only (default 3081).
 
 Uses existing Node.js, pnpm and MPP; installs nothing automatically.
-MPP_EXECUTABLE, MPP_ADB, MPP_EMULATOR and MPP_PNPM may select absolute executable paths.`;
+MPP_EXECUTABLE, MPP_ADB, MPP_EMULATOR and MPP_PNPM may select absolute executable paths.
+MPP_DEVICE_ASSETS may select an absolute directory containing the Android capture artifacts.`;
 
 function fail(message) { throw new Error(message); }
 
@@ -154,7 +155,11 @@ async function main() {
     : installedPnpm(source) ?? { command: 'pnpm', args: [] };
   const actual = output(pnpm.command, [...pnpm.args, '--version'], source, 'pnpm version check');
   if (actual !== PNPM_VERSION) fail(`Use exactly pnpm ${PNPM_VERSION} from the installed source dependencies or select it with MPP_PNPM; other versions are unsupported.`);
-  const config = { executable: executable(process.env.MPP_EXECUTABLE ?? join(ROOT, 'target/debug/mpp'), 'MPP_EXECUTABLE') };
+  const config = {
+    executable: executable(process.env.MPP_EXECUTABLE ?? join(ROOT, 'target/debug/mpp'), 'MPP_EXECUTABLE'),
+    deviceAssets: process.env.MPP_DEVICE_ASSETS ?? join(ROOT, 'target/android-device'),
+  };
+  if (!isAbsolute(config.deviceAssets) || config.deviceAssets.includes('\0')) fail('MPP_DEVICE_ASSETS must be an absolute directory path.');
   for (const key of ['adb', 'emulator']) {
     const value = process.env[`MPP_${key.toUpperCase()}`];
     if (value !== undefined) config[key] = executable(value, `MPP_${key.toUpperCase()}`);

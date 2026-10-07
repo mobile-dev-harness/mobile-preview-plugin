@@ -1,0 +1,645 @@
+diff --git a/packages/client/ui-deliverables/tests/review-tab.client.spec.tsx b/packages/client/ui-deliverables/tests/review-tab.client.spec.tsx
+index 9020938..3f4c932 100644
+--- a/packages/client/ui-deliverables/tests/review-tab.client.spec.tsx
++++ b/packages/client/ui-deliverables/tests/review-tab.client.spec.tsx
+@@ -172,7 +172,7 @@ describe('ReviewTab', () => {
+     const runtime = {
+       renderSlot: renderFileActions,
+       useTabInfo: () => ({
+-        sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-1' },
++        sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-1', isSoleDockedPane: true },
+         tab: { id: TAB, kind: 'changes-review', contentId: options.address ?? ADDRESS, title: 'Review', visible: true, navigation, signal: aborter.signal, actions: tabActions },
+       }),
+       sessionId: SESSION,
+diff --git a/packages/client/ui-layout/README.i18n.yaml b/packages/client/ui-layout/README.i18n.yaml
+index 6e9ff49..010f4c8 100644
+--- a/packages/client/ui-layout/README.i18n.yaml
++++ b/packages/client/ui-layout/README.i18n.yaml
+@@ -15,8 +15,8 @@
+   en: d152484eb41ac6b4
+   zh: 09388d293f9be9cb
+ /deepseek-ai-dsh-client-ui-layout/use-this-package:
+-  en: cc6e9021ba3001bc
+-  zh: 97444857762b4e8e
++  en: 6f0ef7a8a8314d0f
++  zh: 93fc045fb96680a2
+ /deepseek-ai-dsh-client-ui-layout/use-this-package/window-chrome-seat:
+   en: 7eac53b38d0777fe
+   zh: 7f9422dff671ba50
+diff --git a/packages/client/ui-layout/README.md b/packages/client/ui-layout/README.md
+index acc75b5..d141f23 100644
+--- a/packages/client/ui-layout/README.md
++++ b/packages/client/ui-layout/README.md
+@@ -29,6 +29,8 @@ Desktop Mod+B toggles the left sidebar through the same layout action used by it
+
+ The root slot composes the sidebar, main content, and right column. The sidebar spans 264–420px, defaults to 280px, and retains a 56px rail when collapsed; below 1024px it collapses automatically, and opening the right panel collapses a manually expanded sidebar. The right panel first opens at 45% of the viewport, then retains the user's pixel preference, capped at 70%. To protect 400px for the center, the frame first reduces the right panel to 300px, then reports insufficient room so its occupant closes it, and only then compresses the center further. Dragging has no transition delay; the right handle is absent while closed or fullscreen.
+
++`ctx.layout.requestRightbarWidth(width)` temporarily suggests a content width under the same limits without replacing the saved user width. Its handle updates or releases the latest request; superseded handles stay inactive. Widths must be finite: a non-finite request or active-handle update throws `RangeError` without changing the current suggestion or user preference; inactive-handle updates remain no-ops. Manual resizing clears the request before saving the dragged width, so later content measurements cannot override the gesture. Disposing the current request or the layout restores the saved preference. Content releases its request when hidden, fullscreen, floating, or sharing the right panel with another docked pane.
++
+ Global panels occupy the root-scoped `main` keyed slot; `conversation` is the reserved key for the Conversation. `ctx.layout.selectPanel(id)` selects a registered panel, and `null` selects the Conversation without changing the current Session. The Plugins page contributes one of the shipped global panels.
+
+ The single root-scoped `shell.bottom` slot spans the full width below the three columns. Its occupant controls its own height and visibility; the columns shrink by that height, and empty content reserves no space. Main-panel navigation preserves the bottom component. Column resize handles stop above it, while `shell.overlay` covers the whole frame. The default composition leaves this slot empty.
+diff --git a/packages/client/ui-layout/README.zh.md b/packages/client/ui-layout/README.zh.md
+index 729155f..2c15aea 100644
+--- a/packages/client/ui-layout/README.zh.md
++++ b/packages/client/ui-layout/README.zh.md
+@@ -29,6 +29,8 @@ kind: "package-reference"
+
+ 本插件在 root slot 中组合侧边栏、主内容和右栏。侧边栏宽度为 264～420px，默认为 280px，收起后保留 56px 控制栏；窗口宽度低于 1024px 时自动收起，打开右侧面板也会收起手动展开的侧边栏。右侧面板首次打开时使用视口宽度的 45%，之后保留用户的像素宽度偏好，上限为 70%。为给中栏保留 400px，框架先将右侧面板缩减至 300px，再报告空间不足，使占用方将其关闭，最后才进一步压缩中栏。拖动没有过渡延迟；右侧手柄在关闭或全屏时不显示。
+
++`ctx.layout.requestRightbarWidth(width)` 可在相同限制内临时建议内容宽度，不替换保存的用户宽度。返回的句柄可更新或释放最新请求；被替代的句柄始终无效。宽度必须为有限数值：使用非有限宽度发起请求或更新有效句柄时会抛出 `RangeError`，不改变当前建议或用户偏好；更新无效句柄仍不产生任何操作。手动调整宽度会先清除请求，再保存拖动后的宽度，因此后续内容测量不能覆盖该操作。释放当前请求或卸载布局会恢复保存的偏好。内容隐藏、全屏、浮动或与另一停靠分栏共享右侧面板时，应释放自己的请求。
++
+ 全局面板占据 root 作用域的 `main` keyed slot；`conversation` 是为会话界面保留的 key。`ctx.layout.selectPanel(id)` 选中已注册面板，`null` 则选中会话界面，但不改变当前会话。Plugins 页面是默认组合中的一个全局面板。
+
+ root 作用域的单一 `shell.bottom` slot 横跨三列下方的整行。占用方控制自身高度与显隐；三列按该高度缩短，空内容不预留空间。切换主面板时保留底部组件。列宽拖拽手柄止于底部内容上方，`shell.overlay` 仍覆盖整个框架。默认组合不占用此 slot。
+diff --git a/packages/client/ui-layout/src/client/AppFrame.tsx b/packages/client/ui-layout/src/client/AppFrame.tsx
+index 5614947..79c9dac 100644
+--- a/packages/client/ui-layout/src/client/AppFrame.tsx
++++ b/packages/client/ui-layout/src/client/AppFrame.tsx
+@@ -162,7 +162,8 @@ export function AppFrame({
+   const sidebarPreference = sidebarCollapsed
+     ? 0
+     : layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : layoutInfo.sidebar
+-  const rightbarPreference = layoutInfo.rightbar ?? viewport * RIGHTBAR_DEFAULT_RATIO
++  const rightbarPreference = Math.max(RIGHTBAR_MIN,
++    layoutInfo.rightbarWidthRequest?.width ?? layoutInfo.rightbar ?? viewport * RIGHTBAR_DEFAULT_RATIO)
+   // Desktop reopen controls occupy the frame's shell.leading seat (macOS) or
+   // the Windows caption row; neither platform keeps an icon rail.
+   const darwin = document.documentElement.dataset.platform === 'darwin'
+diff --git a/packages/client/ui-layout/src/client/index.ts b/packages/client/ui-layout/src/client/index.ts
+index 3948c19..11e97cf 100644
+--- a/packages/client/ui-layout/src/client/index.ts
++++ b/packages/client/ui-layout/src/client/index.ts
+@@ -27,7 +27,7 @@ import { ThemePresenter } from './theme-presenter.ts'
+ // OwnerShare contracts below are the render-side halves registrants compose
+ // against; the frame components and the store factory are package-internal.
+ export { LayoutController } from './service.ts'
+-export type { ILayout, MainPanelId, PanelInfo } from './service.ts'
++export type { ILayout, MainPanelId, PanelInfo, RightbarWidthRequest } from './service.ts'
+
+ /** Selector hook over root-scoped panel selection. */
+ export type UsePanelInfo = SnapshotSelectorHook<PanelInfo>
+diff --git a/packages/client/ui-layout/src/client/service.ts b/packages/client/ui-layout/src/client/service.ts
+index 22dd77a..cc57ef5 100644
+--- a/packages/client/ui-layout/src/client/service.ts
++++ b/packages/client/ui-layout/src/client/service.ts
+@@ -24,6 +24,18 @@ export interface PanelInfo {
+ /** The layout store's bound action set (framework-baked, draft params peeled). */
+ export type PanelActions = BoundActions<ReturnType<typeof createLayoutStore>>
+
++/** Temporary content width suggestion; superseded or manually overridden requests stay inactive. */
++export interface RightbarWidthRequest {
++  /**
++   * Update this suggestion while it remains current.
++   * @param width - finite preferred normal right panel width in pixels, subject to frame limits.
++   * @throws RangeError for a non-finite width while current; inactive handles remain no-ops.
++   */
++  update(width: number): void
++  /** Release this suggestion if current, restoring the saved user width. */
++  dispose(): void
++}
++
+ /** Panel navigation and geometry actions exposed through ctx.layout. */
+ export interface ILayout {
+   /** Selected central panel from the same root store used by `usePanelInfo`. */
+@@ -41,6 +53,14 @@ export interface ILayout {
+   beginNavigation(): AbortSignal
+   /** Toggle the sidebar panel (closed ⟷ contract default width). */
+   toggleSidebar(): void
++  /**
++   * Suggest a normal right panel width without changing the saved user width.
++   * The latest request wins; manual resizing invalidates it until a new request.
++   * @param width - finite preferred width in pixels, subject to the frame's existing limits.
++   * @returns an update/dispose handle; the caller releases it when its content no longer owns the width.
++   * @throws RangeError for a non-finite width, preserving the current request and saved user width.
++   */
++  requestRightbarWidth(width: number): RightbarWidthRequest
+   /**
+    * Report the right panel's presentation without changing its expanded state.
+    * @param track - whether the normal panel width reserves a grid track,
+@@ -56,6 +76,7 @@ export interface ILayout {
+ /** Cross-plugin panel-action face (ctx.layout). */
+ export class LayoutController implements ILayout {
+   private navigation = new AbortController()
++  private nextWidthRequestId = 0
+
+   /**
+    * @param panels - actions of the instance shared with the root entry.
+@@ -84,9 +105,10 @@ export class LayoutController implements ILayout {
+     return this.navigation.signal
+   }
+
+-  /** Invalidate pending navigations when the layout owner is unloaded. */
++  /** Invalidate pending navigations and width requests when the layout owner is unloaded. */
+   dispose(): void {
+     this.navigation.abort()
++    this.panels.releaseRightbarWidth()
+   }
+
+   /** Toggle the sidebar panel (closed ⟷ contract default width). */
+@@ -94,6 +116,17 @@ export class LayoutController implements ILayout {
+     this.panels.toggleSidebar()
+   }
+
++  /** Request a temporary content width under the frame's normal limits. */
++  requestRightbarWidth(width: number): RightbarWidthRequest {
++    if (!Number.isFinite(width)) throw new RangeError('layout.requestRightbarWidth: width must be finite')
++    const id = ++this.nextWidthRequestId
++    this.panels.requestRightbarWidth(id, width)
++    return {
++      update: (nextWidth) => { this.panels.updateRightbarWidth(id, nextWidth) },
++      dispose: () => { this.panels.releaseRightbarWidth(id) },
++    }
++  }
++
+   /** Report the right panel's track and fullscreen presentation. */
+   openRightbar(track: boolean, fullscreen: boolean): void {
+     this.panels.openRightbar(track, fullscreen)
+diff --git a/packages/client/ui-layout/src/client/stores.ts b/packages/client/ui-layout/src/client/stores.ts
+index 3a53caf..3a80284 100644
+--- a/packages/client/ui-layout/src/client/stores.ts
++++ b/packages/client/ui-layout/src/client/stores.ts
+@@ -31,6 +31,8 @@ type LayoutInfo = {
+    * the frame and closing the panel preserve this preference.
+    */
+   rightbar: number | null
++  /** Latest content suggestion; never replaces the saved user preference. */
++  rightbarWidthRequest: { id: number; width: number } | null
+   /**
+    * Whether the right panel is drawn at all, in either presentation.
+    *
+@@ -62,6 +64,9 @@ type LayoutActions = {
+   toggleSidebar: (draft: LayoutState) => void
+   setViewportWidth: (draft: LayoutState, width: number) => void
+   setRightbar: (draft: LayoutState, px: number) => void
++  requestRightbarWidth: (draft: LayoutState, id: number, width: number) => void
++  updateRightbarWidth: (draft: LayoutState, id: number, width: number) => void
++  releaseRightbarWidth: (draft: LayoutState, id?: number) => void
+   openRightbar: (draft: LayoutState, track: boolean, fullscreen: boolean) => void
+   closeRightbar: (draft: LayoutState) => void
+ }
+@@ -84,6 +89,7 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
+         viewportWidth: window.innerWidth,
+         narrowExpanded: false,
+         rightbar: null,
++        rightbarWidthRequest: null,
+         rightbarShown: false,
+         rightbarTrack: false,
+         rightbarFullscreen: false,
+@@ -122,8 +128,20 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
+       },
+       setRightbar: (d, px: number) => {
+         d.layoutInfo.rightbarInstant = false
++        d.layoutInfo.rightbarWidthRequest = null
+         d.layoutInfo.rightbar = clampWidth(px, RIGHTBAR_MIN, Math.max(RIGHTBAR_MIN, d.layoutInfo.viewportWidth * RIGHTBAR_MAX_RATIO))
+       },
++      requestRightbarWidth: (d, id: number, width: number) => {
++        d.layoutInfo.rightbarWidthRequest = { id, width }
++      },
++      updateRightbarWidth: (d, id: number, width: number) => {
++        if (d.layoutInfo.rightbarWidthRequest?.id !== id) return
++        if (!Number.isFinite(width)) throw new RangeError('layout.requestRightbarWidth.update: width must be finite')
++        d.layoutInfo.rightbarWidthRequest.width = width
++      },
++      releaseRightbarWidth: (d, id?: number) => {
++        if (id === undefined || d.layoutInfo.rightbarWidthRequest?.id === id) d.layoutInfo.rightbarWidthRequest = null
++      },
+       openRightbar: (d, track: boolean, fullscreen: boolean) => {
+         if (!d.layoutInfo.rightbarShown || d.layoutInfo.rightbarTrack !== track || d.layoutInfo.rightbarFullscreen !== fullscreen) {
+           d.layoutInfo.rightbarInstant = d.layoutInfo.rightbarFullscreen && !fullscreen
+diff --git a/packages/client/ui-layout/tests/app-frame.client.spec.tsx b/packages/client/ui-layout/tests/app-frame.client.spec.tsx
+index f82cec3..a3ecc4a 100644
+--- a/packages/client/ui-layout/tests/app-frame.client.spec.tsx
++++ b/packages/client/ui-layout/tests/app-frame.client.spec.tsx
+@@ -8,6 +8,7 @@ import { AppFrame } from '../src/client/AppFrame.tsx'
+ import type { AppFrameProps } from '../src/client/AppFrame.tsx'
+ import type { MainPanelId, RightbarOwnerProps, SidebarOwnerProps } from '../src/client/index.ts'
+ import { createLayoutStore } from '../src/client/stores.ts'
++import { LayoutController } from '../src/client/service.ts'
+ import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
+ import type { SessionId } from '@deepseek-ai/dsh-session/types'
+
+@@ -290,6 +291,33 @@ describe('AppFrame', () => {
+ })
+
+ describe('AppFrame normal width concessions', () => {
++  it('applies temporary content widths under existing limits and restores the saved width', () => {
++    const { frame, instance, rightOwner } = mountFrame()
++    const layout = new LayoutController(instance.actions, () => true, {
++      getSnapshot: () => instance.getSnapshot().panelInfo,
++      subscribe: listener => instance.subscribe(listener),
++    })
++    act(() => { instance.actions.setRightbar(600); instance.actions.openRightbar(true, false) })
++    let request!: ReturnType<LayoutController['requestRightbarWidth']>
++    act(() => { request = layout.requestRightbarWidth(0) })
++    expect(rightOwner().width).toBe(300)
++    expect(tracks(frame)).toEqual([280, 300])
++    act(() => { request.update(9999) })
++    expect(tracks(frame)).toEqual([280, 1344])
++    expect(rightOwner().width).toBe(1240)
++    resize(800)
++    expect(tracks(frame)).toEqual([56, 560])
++    expect(rightOwner().width).toBe(344)
++    resize(755)
++    expect(rightOwner()).toEqual({ width: 0, viewportWidth: 755, canShow: false })
++    expect(tracks(frame)).toEqual([56, 0])
++    expect(instance.getSnapshot().layoutInfo.rightbar).toBe(600)
++    resize(1920)
++    act(() => { request.dispose() })
++    expect(rightOwner().width).toBe(600)
++    expect(tracks(frame)).toEqual([280, 600])
++  })
++
+   it('measures the frame, not the window, before choosing the first-open preference', () => {
+     frameWidth = 1000
+     const { instance, rightOwner } = mountFrame(1920)
+@@ -528,6 +556,22 @@ describe('AppFrame right panel presentation', () => {
+ })
+
+ describe('AppFrame pointer resizing', () => {
++  it('takes over a content width when dragging and ignores late content measurements', () => {
++    const { frame, instance, rightOwner } = mountFrame()
++    const layout = new LayoutController(instance.actions, () => true, {
++      getSnapshot: () => instance.getSnapshot().panelInfo,
++      subscribe: listener => instance.subscribe(listener),
++    })
++    act(() => { instance.actions.openRightbar(true, false) })
++    let request!: ReturnType<LayoutController['requestRightbarWidth']>
++    act(() => { request = layout.requestRightbarWidth(340) })
++    drag(handleFor(frame, 'rightbar'), 1580, 1500)
++    expect(instance.getSnapshot().layoutInfo.rightbar).toBe(420)
++    act(() => { request.update(350); request.dispose() })
++    expect(rightOwner().width).toBe(420)
++    expect(tracks(frame)).toEqual([280, 420])
++  })
++
+   it('updates columns during the gesture and freezes the drag-start width', () => {
+     const { frame, instance } = mountFrame()
+     const handle = handleFor(frame, 'sidebar')
+diff --git a/packages/client/ui-layout/tests/apply.client.spec.ts b/packages/client/ui-layout/tests/apply.client.spec.ts
+index e1b267d..8a3dc76 100644
+--- a/packages/client/ui-layout/tests/apply.client.spec.ts
++++ b/packages/client/ui-layout/tests/apply.client.spec.ts
+@@ -123,8 +123,13 @@ describe('ui-layout client apply', () => {
+     expect(() => { layout.selectPanel(panelId) }).toThrow('main panel "panel-a" is not registered')
+     expect(instance.getSnapshot().layoutInfo.sidebar).toBe(0)
+     const pending = layout.beginNavigation()
++    const widthRequest = layout.requestRightbarWidth(350)
++    expect(instance.getSnapshot().layoutInfo.rightbarWidthRequest?.width).toBe(350)
+     await fiber.dispose()
+     expect(pending.aborted).toBe(true)
++    expect(instance.getSnapshot().layoutInfo.rightbarWidthRequest).toBeNull()
++    widthRequest.update(400)
++    expect(instance.getSnapshot().layoutInfo.rightbarWidthRequest).toBeNull()
+   })
+
+   it('theme presenter applies the initial snapshot, follows theme/change, and unwinds on dispose', async () => {
+diff --git a/packages/client/ui-layout/tests/layout-store.client.spec.ts b/packages/client/ui-layout/tests/layout-store.client.spec.ts
+index edf2a5a..e0d13fa 100644
+--- a/packages/client/ui-layout/tests/layout-store.client.spec.ts
++++ b/packages/client/ui-layout/tests/layout-store.client.spec.ts
+@@ -17,6 +17,7 @@ describe('createLayoutStore', () => {
+         viewportWidth: 1920,
+         narrowExpanded: false,
+         rightbar: null,
++        rightbarWidthRequest: null,
+         rightbarShown: false,
+         rightbarTrack: false,
+         rightbarFullscreen: false,
+diff --git a/packages/client/ui-layout/tests/service.client.spec.ts b/packages/client/ui-layout/tests/service.client.spec.ts
+index b3e3680..4cd8761 100644
+--- a/packages/client/ui-layout/tests/service.client.spec.ts
++++ b/packages/client/ui-layout/tests/service.client.spec.ts
+@@ -11,6 +11,9 @@ function fakePanels(): PanelActions {
+     toggleSidebar: vi.fn(),
+     setViewportWidth: vi.fn(),
+     setRightbar: vi.fn(),
++    requestRightbarWidth: vi.fn(),
++    updateRightbarWidth: vi.fn(),
++    releaseRightbarWidth: vi.fn(),
+     openRightbar: vi.fn(),
+     closeRightbar: vi.fn(),
+   }
+diff --git a/packages/client/ui-schedule/tests/schedule-task-tab.client.spec.tsx b/packages/client/ui-schedule/tests/schedule-task-tab.client.spec.tsx
+index 4e801ad..0a112ff 100644
+--- a/packages/client/ui-schedule/tests/schedule-task-tab.client.spec.tsx
++++ b/packages/client/ui-schedule/tests/schedule-task-tab.client.spec.tsx
+@@ -65,7 +65,7 @@ function tabInfo(params: unknown, revision = 1): SidebarRightTabInfo {
+   }
+   return {
+     sidebar: { expanded: true, fullscreen: false },
+-    panel: { id: 'pane-1' as PaneId },
++    panel: { id: 'pane-1' as PaneId, isSoleDockedPane: true },
+     tab: {
+       ...TAB,
+       title: '',
+diff --git a/packages/client/ui-sidebar-browser/tests/browser-body.client.spec.tsx b/packages/client/ui-sidebar-browser/tests/browser-body.client.spec.tsx
+index b5662a1..04f7810 100644
+--- a/packages/client/ui-sidebar-browser/tests/browser-body.client.spec.tsx
++++ b/packages/client/ui-sidebar-browser/tests/browser-body.client.spec.tsx
+@@ -51,7 +51,7 @@ function mountBrowser(navigation?: { readonly url?: string },
+     & Omit<BrowserInjected, 'keyedHooks'> = {
+       sessionId: SESSION,
+       useTabInfo: () => ({
+-        sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane' as PaneId },
++        sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane' as PaneId, isSoleDockedPane: true },
+         tab: {
+           id: TAB, kind: 'browser', title: 'Browser', contentId: 'sidebar://browser/1', visible: true,
+           navigation: { address: 'sidebar://browser/1', params: navigation, revision: 0 },
+diff --git a/packages/client/ui-sidebar-documentpreview/tests/fixtures.client.ts b/packages/client/ui-sidebar-documentpreview/tests/fixtures.client.ts
+index 738555c..a4d9eab 100644
+--- a/packages/client/ui-sidebar-documentpreview/tests/fixtures.client.ts
++++ b/packages/client/ui-sidebar-documentpreview/tests/fixtures.client.ts
+@@ -154,7 +154,7 @@ export function harness(script: Record<number, RemoteResult<WorkspaceFileText>>
+   const props = (navigation: { params?: unknown; revision: number } = { revision: 1 }) => ({
+     useTabInfo: () => ({
+       sidebar: { expanded: true, fullscreen: false },
+-      panel: { id: 'pane-1' },
++      panel: { id: 'pane-1', isSoleDockedPane: true },
+       tab: {
+         id: tabId, kind: 'text', contentId: ADDRESS, title: 'notes.md', visible: true,
+         navigation: { address: ADDRESS, params: navigation.params, revision: navigation.revision },
+diff --git a/packages/client/ui-sidebar-files/tests/mount.client.tsx b/packages/client/ui-sidebar-files/tests/mount.client.tsx
+index 5646e77..ccf2b26 100644
+--- a/packages/client/ui-sidebar-files/tests/mount.client.tsx
++++ b/packages/client/ui-sidebar-files/tests/mount.client.tsx
+@@ -79,7 +79,7 @@ function harness(cwd: string | null, refreshShortcut?: ReturnType<FilesBodyProps
+     // A page tab's address is the shell's to mint; the body never reads it.
+     useTabInfo: () => ({
+       sidebar: { expanded: true, fullscreen: false },
+-      panel: { id: 'pane-1' },
++      panel: { id: 'pane-1', isSoleDockedPane: true },
+       tab: {
+         id: TAB, kind: 'files', contentId: 'files', title: zh['type.label'], visible: true,
+         navigation: { address: 'files', params: undefined, revision: 1 },
+diff --git a/packages/client/ui-sidebar-right/README.i18n.yaml b/packages/client/ui-sidebar-right/README.i18n.yaml
+index bc01885..e920f27 100644
+--- a/packages/client/ui-sidebar-right/README.i18n.yaml
++++ b/packages/client/ui-sidebar-right/README.i18n.yaml
+@@ -33,8 +33,8 @@
+   en: 4519c4633d160c2a
+   zh: e4019a62532f885a
+ /deepseek-ai-dsh-client-ui-sidebar-right/the-tab-domain:
+-  en: 717b86e05b44ebdd
+-  zh: 0f4f694d0ea1d7f8
++  en: 0fd7575c481534be
++  zh: 5e737328cb4e299c
+ /deepseek-ai-dsh-client-ui-sidebar-right/the-guide:
+   en: 601f9f6635babc4d
+   zh: e345004fe30a65b9
+diff --git a/packages/client/ui-sidebar-right/README.md b/packages/client/ui-sidebar-right/README.md
+index 350dedd..3d9f2b6 100644
+--- a/packages/client/ui-sidebar-right/README.md
++++ b/packages/client/ui-sidebar-right/README.md
+@@ -101,7 +101,7 @@ Two more seats extend what is already there: `sidebar.right.tab.guide` (chain) r
+ <a id="the-tab-domain"></a>
+ ## The Tab domain
+
+-The Tab domain retains a branded occurrence id, navigation, an abort signal, and bound actions per (Session, tab id). A private assembly callback adopts each Session's store, reconciles restored records immediately, and follows its commits. Reconstructing a Session store replaces its adoption, releasing the old subscription and cleanup reference. Only record removal or plugin unload aborts the signal; closing the sidebar and switching Sessions retain records, while undo restores a new occurrence. `useTabInfo()` composes framework-bound store and navigation hooks without manual component subscriptions or render-time record creation. `tab.actions` always target their own Session; `tab.visible` distinguishes bodies from titles and excludes background Sessions; foreground floating tabs remain visible when the sidebar closes. `adopt` is absent from the public controller.
++The Tab domain retains a branded occurrence id, navigation, an abort signal, and bound actions per (Session, tab id). A private assembly callback adopts each Session's store, reconciles restored records immediately, and follows its commits. Reconstructing a Session store replaces its adoption, releasing the old subscription and cleanup reference. Only record removal or plugin unload aborts the signal; closing the sidebar and switching Sessions retain records, while undo restores a new occurrence. `useTabInfo()` composes framework-bound store and navigation hooks without manual component subscriptions or render-time record creation. `tab.actions` always target their own Session; `tab.visible` distinguishes bodies from titles and excludes background Sessions; foreground floating tabs remain visible when the sidebar closes. `panel.isSoleDockedPane` is derived from the current layout: true only for the single docked pane, regardless of its tab count; floating panes always report false. A body can combine it with `tab.visible` and `!sidebar.fullscreen` before requesting a content width through `ctx.layout`. `adopt` is absent from the public controller.
+
+ A type's `keepMounted: true` retains visited bodies across tab and Session changes, collapse, and docking. Each View supplies its stable hold callback through owner props, so rebuilding Session injection bindings does not release a body. Unvisited bodies are not mounted eagerly.
+
+diff --git a/packages/client/ui-sidebar-right/README.zh.md b/packages/client/ui-sidebar-right/README.zh.md
+index 83ee48c..60576f6 100644
+--- a/packages/client/ui-sidebar-right/README.zh.md
++++ b/packages/client/ui-sidebar-right/README.zh.md
+@@ -101,7 +101,7 @@ tab 类型分两阶段注册，随包发布的引导类型走的正是别的包
+ <a id="the-tab-domain"></a>
+ ## Tab 域
+
+-Tab 域按（Session，Tab id）保留品牌化 occurrence id、导航、中止信号与绑定动作。私有装配回调采用各 Session 的 store，立即对齐恢复的记录，再跟随其提交。同一 Session 的 store 重建会替换其 `adopt` 注册，同时释放旧订阅与清理引用。记录消失或插件卸载才中止 signal，收起和切会话不销毁记录；undo 恢复的是新 occurrence。`useTabInfo()` 组合框架绑定的 store 与导航 hook，不在组件中手写订阅或在渲染时创建记录。`tab.actions` 始终作用于自己的会话；`tab.visible` 区分正文与标题，并排除后台 Session；前台浮窗不受整栏收起影响。`adopt` 不在公开控制器上。
++Tab 域按（Session，Tab id）保留品牌化 occurrence id、导航、中止信号与绑定动作。私有装配回调采用各 Session 的 store，立即对齐恢复的记录，再跟随其提交。同一 Session 的 store 重建会替换其 `adopt` 注册，同时释放旧订阅与清理引用。记录消失或插件卸载才中止 signal，收起和切会话不销毁记录；undo 恢复的是新 occurrence。`useTabInfo()` 组合框架绑定的 store 与导航 hook，不在组件中手写订阅或在渲染时创建记录。`tab.actions` 始终作用于自己的会话；`tab.visible` 区分正文与标题，并排除后台 Session；前台浮窗不受整栏收起影响。`panel.isSoleDockedPane` 从当前布局派生：仅唯一的停靠分栏为 true，与其中 tab 数量无关；浮动分栏始终为 false。正文可结合 `tab.visible` 与 `!sidebar.fullscreen` 判断是否通过 `ctx.layout` 请求内容宽度。`adopt` 不在公开控制器上。
+
+ 类型声明 `keepMounted: true` 后，已访问正文会在切 tab、切 Session、收起和停靠切换期间保留。每个 View 通过 owner props 提供自身稳定的持有回调，因此 Session injection binding 重建不会释放正文。未访问的正文不会提前挂载。
+
+diff --git a/packages/client/ui-sidebar-right/src/client/contract/slots.ts b/packages/client/ui-sidebar-right/src/client/contract/slots.ts
+index 98696d0..19094b3 100644
+--- a/packages/client/ui-sidebar-right/src/client/contract/slots.ts
++++ b/packages/client/ui-sidebar-right/src/client/contract/slots.ts
+@@ -167,7 +167,11 @@ export interface SidebarRightTabInfo {
+     /** Presentation selected by manual mode or viewport width; preserved while collapsed. */
+     readonly fullscreen: boolean
+   }
+-  readonly panel: { readonly id: PaneId }
++  readonly panel: {
++    readonly id: PaneId
++    /** This pane is docked and no other docked pane shares the right panel. */
++    readonly isSoleDockedPane: boolean
++  }
+   readonly tab: TabRecord & {
+     /** Effective refresh binding for this page's controls. */
+     readonly refreshShortcut?: ShortcutCatalogEntry | undefined
+diff --git a/packages/client/ui-sidebar-right/src/client/tab-info.ts b/packages/client/ui-sidebar-right/src/client/tab-info.ts
+index 7c109e7..6cd842a 100644
+--- a/packages/client/ui-sidebar-right/src/client/tab-info.ts
++++ b/packages/client/ui-sidebar-right/src/client/tab-info.ts
+@@ -1,7 +1,7 @@
+ /** Slot-owned tab information derived from framework-bound store and navigation hooks. */
+ import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
+ import { useMemo } from 'react'
+-import { findTabPane } from '@deepseek-ai/dsh-client-ui-dockkit'
++import { dockPaneIds, findTabPane } from '@deepseek-ai/dsh-client-ui-dockkit'
+ import type { TabId } from '@deepseek-ai/dsh-client-ui-dockkit'
+ import type { KeyedSnapshotSelectorHook, PropsStore, SlotHookFactory } from '@deepseek-ai/dsh-client-ui-slots'
+ import type { SidebarRightTabActions, SidebarRightTabNavigation, UseSidebarRightTabInfo } from './contract/slots.ts'
+@@ -40,7 +40,7 @@ export const tabInfoFactory: SlotHookFactory<'sidebar.right.pane.tab', UseSideba
+       const pane = findTabPane(layout, tabId)
+       return {
+         sidebar: { expanded: layout.expanded, fullscreen },
+-        panel: { id: pane.id },
++        panel: { id: pane.id, isSoleDockedPane: pane.host === 'dock' && dockPaneIds(layout).length === 1 },
+         tab: {
+           ...tab,
+           visible: active && (pane.host === 'float' || (layout.expanded && (title || pane.activeTabId === tabId))),
+diff --git a/packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx b/packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
+index a4015b0..d6513c7 100644
+--- a/packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
++++ b/packages/client/ui-sidebar-right/tests/guide-body.client.spec.tsx
+@@ -65,7 +65,7 @@ function mountGuide(entries: readonly SidebarRightGuideBox[], custom?: (key: str
+   const props: GuideBodyProps = {
+     ...standard, SessionProvider: ({ children }) => children,
+     useShortcuts: <T,>(selector: (entries: readonly ShortcutCatalogEntry[]) => T): T => selector(shortcuts),
+-    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId },
++    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId, isSoleDockedPane: true },
+       tab: { ...TAB, visible: true, signal: new AbortController().signal,
+         navigation: { address: TAB.contentId, params: undefined, revision: 0 },
+         actions: { bindCommands: vi.fn(() => vi.fn()), openResource: vi.fn(), openTab, close: vi.fn() } } }),
+diff --git a/packages/client/ui-sidebar-right/tests/tab-info.client.spec.tsx b/packages/client/ui-sidebar-right/tests/tab-info.client.spec.tsx
+index e82ec05..6c7b2c9 100644
+--- a/packages/client/ui-sidebar-right/tests/tab-info.client.spec.tsx
++++ b/packages/client/ui-sidebar-right/tests/tab-info.client.spec.tsx
+@@ -1,7 +1,7 @@
+ // @vitest-environment jsdom
+ /** Tab information refuses readers whose committed record and navigation binding disagree. */
+ import { afterEach, describe, expect, it, vi } from 'vitest'
+-import { cleanup, renderHook } from '@testing-library/react'
++import { act, cleanup, renderHook } from '@testing-library/react'
+ import { bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
+ import { keyedObservableHook } from '@deepseek-ai/dsh-client-ui-renderer/src/client/bindings.tsx'
+ import type { SessionId } from '@deepseek-ai/dsh-session/types'
+@@ -74,6 +74,26 @@ function expectUncommitted(useTabInfo: UseSidebarRightTabInfo, tabId: TabId): vo
+ }
+
+ describe('tabInfoFactory committed-record relation', () => {
++  it('derives sole docked pane status while splitting, undoing, floating, and docking', () => {
++    const h = harness()
++    const tabId = h.open()
++    const view = renderHook(h.bind(tabId))
++    const originalPaneId = view.result.current.panel.id
++    expect(view.result.current.panel.isSoleDockedPane).toBe(true)
++
++    act(() => { h.instance.actions.splitPane(SESSION, originalPaneId); h.sync() })
++    expect(view.result.current.panel).toEqual({ id: originalPaneId, isSoleDockedPane: false })
++    act(() => { h.instance.actions.undo(SESSION); h.sync() })
++    expect(view.result.current.panel.isSoleDockedPane).toBe(true)
++
++    act(() => { h.instance.actions.floatTab(SESSION, tabId); h.sync() })
++    const floatingPaneId = view.result.current.panel.id
++    expect(floatingPaneId).not.toBe(originalPaneId)
++    expect(view.result.current.panel.isSoleDockedPane).toBe(false)
++    act(() => { h.instance.actions.unfloatPane(SESSION, floatingPaneId); h.sync() })
++    expect(view.result.current.panel).toEqual({ id: originalPaneId, isSoleDockedPane: true })
++  })
++
+   it('rejects a navigation before the first layout commit and reads the same record after commit', () => {
+     const h = harness()
+     const tabId = h.open((opened) => {
+diff --git a/packages/client/ui-sidebar-terminal/tests/terminal-guide.client.spec.tsx b/packages/client/ui-sidebar-terminal/tests/terminal-guide.client.spec.tsx
+index a50f7ca..da5ccaf 100644
+--- a/packages/client/ui-sidebar-terminal/tests/terminal-guide.client.spec.tsx
++++ b/packages/client/ui-sidebar-terminal/tests/terminal-guide.client.spec.tsx
+@@ -42,7 +42,7 @@ function mount(description: string | undefined = en.description, shortcut?: Guid
+     ...standard,
+     useShortcuts: <T,>(selector: (entries: readonly ShortcutCatalogEntry[]) => T): T => selector(shortcuts),
+     entryId: 'new', kind: 'terminal', title: en.new, description, t: makeTranslate(en),
+-    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId },
++    useTabInfo: () => ({ sidebar: { expanded: true, fullscreen: false }, panel: { id: 'pane-guide' as PaneId, isSoleDockedPane: true },
+       tab: { id: 'tab-guide' as TabId, kind: 'guide', contentId: 'sidebar://guide', title: 'Start',
+         visible: true, signal: new AbortController().signal,
+         navigation: { address: 'sidebar://guide', params: undefined, revision: 0 },
+diff --git a/packages/client/ui-sidebar/tests/panel-list.client.spec.tsx b/packages/client/ui-sidebar/tests/panel-list.client.spec.tsx
+index 5673aa9..9abbbb8 100644
+--- a/packages/client/ui-sidebar/tests/panel-list.client.spec.tsx
++++ b/packages/client/ui-sidebar/tests/panel-list.client.spec.tsx
+@@ -44,6 +44,7 @@ async function bench(collapsed = false) {
+     selectPanel: vi.fn((activePanelId: MainPanelId | null) => { runtime.panelInfo.set({ activePanelId }) }),
+     openRightbar: vi.fn(),
+     closeRightbar: vi.fn(),
++    requestRightbarWidth: vi.fn(() => ({ update: vi.fn(), dispose: vi.fn() })),
+   } satisfies ILayout
+   await runtime.mount({
+     inject: ['slots'],
+diff --git a/packages/client/ui-layout/tests/rightbar-width.client.spec.ts b/packages/client/ui-layout/tests/rightbar-width.client.spec.ts
+new file mode 100644
+index 0000000..bea19ad
+--- /dev/null
++++ b/packages/client/ui-layout/tests/rightbar-width.client.spec.ts
+@@ -0,0 +1,107 @@
++// @vitest-environment jsdom
++/** Content width ownership leaves user preferences and superseded handles intact. */
++import { describe, expect, it } from 'vitest'
++import { LayoutController } from '../src/client/service.ts'
++import { createLayoutStore } from '../src/client/stores.ts'
++
++function harness() {
++  const instance = createLayoutStore().create()
++  const controller = new LayoutController(instance.actions, () => true, {
++    getSnapshot: () => instance.getSnapshot().panelInfo,
++    subscribe: listener => instance.subscribe(listener),
++  })
++  return { instance, controller, info: () => instance.getSnapshot().layoutInfo }
++}
++
++describe('temporary right panel widths', () => {
++  it.each([NaN, Infinity, -Infinity])('rejects non-finite width %s without replacing the current suggestion', (width) => {
++    const { instance, controller, info } = harness()
++    instance.actions.setRightbar(600)
++    const request = controller.requestRightbarWidth(340)
++    const current = instance.getSnapshot()
++    expect(() => controller.requestRightbarWidth(width)).toThrow(RangeError)
++    expect(instance.getSnapshot()).toBe(current)
++    expect(() => { request.update(width) }).toThrow(RangeError)
++    expect(instance.getSnapshot()).toBe(current)
++    request.update(370)
++    expect(info()).toMatchObject({ rightbar: 600, rightbarWidthRequest: { width: 370 } })
++    request.dispose()
++    expect(info()).toMatchObject({ rightbar: 600, rightbarWidthRequest: null })
++  })
++
++  it.each(['superseded', 'manual', 'released', 'layout'] as const)(
++    'ignores non-finite updates after the request is %s', (invalidation) => {
++      const { instance, controller } = harness()
++      const request = controller.requestRightbarWidth(340)
++      if (invalidation === 'superseded') controller.requestRightbarWidth(440)
++      else if (invalidation === 'manual') instance.actions.setRightbar(600)
++      else if (invalidation === 'released') request.dispose()
++      else controller.dispose()
++      const current = instance.getSnapshot()
++      for (const width of [NaN, Infinity, -Infinity]) {
++        expect(() => { request.update(width) }).not.toThrow()
++        expect(instance.getSnapshot()).toBe(current)
++      }
++    },
++  )
++
++  it('keeps the saved width through suggestions, updates, and repeated disposal', () => {
++    const { instance, controller, info } = harness()
++    instance.actions.setRightbar(600)
++    const request = controller.requestRightbarWidth(340)
++    expect(info()).toMatchObject({ rightbar: 600, rightbarWidthRequest: { width: 340 } })
++    request.update(370)
++    expect(info()).toMatchObject({ rightbar: 600, rightbarWidthRequest: { width: 370 } })
++    request.dispose()
++    const released = instance.getSnapshot()
++    request.update(320)
++    request.dispose()
++    expect(instance.getSnapshot()).toBe(released)
++    expect(info()).toMatchObject({ rightbar: 600, rightbarWidthRequest: null })
++  })
++
++  it('keeps a newer request when an older handle updates or disposes', () => {
++    const { instance, controller, info } = harness()
++    const first = controller.requestRightbarWidth(330)
++    const second = controller.requestRightbarWidth(440)
++    const current = instance.getSnapshot()
++    first.update(360)
++    first.dispose()
++    expect(instance.getSnapshot()).toBe(current)
++    second.update(480)
++    expect(info()).toMatchObject({ rightbar: null, rightbarWidthRequest: { width: 480 } })
++    second.dispose()
++    first.update(390)
++    expect(info()).toMatchObject({ rightbar: null, rightbarWidthRequest: null })
++  })
++
++  it('makes a manual width authoritative until a fresh request claims ownership', () => {
++    const { instance, controller, info } = harness()
++    const request = controller.requestRightbarWidth(330)
++    instance.actions.setRightbar(510)
++    const manual = instance.getSnapshot()
++    request.update(350)
++    request.dispose()
++    expect(instance.getSnapshot()).toBe(manual)
++    expect(info()).toMatchObject({ rightbar: 510, rightbarWidthRequest: null })
++    const next = controller.requestRightbarWidth(390)
++    request.update(700)
++    request.dispose()
++    expect(info()).toMatchObject({ rightbar: 510, rightbarWidthRequest: { width: 390 } })
++    next.dispose()
++    expect(info()).toMatchObject({ rightbar: 510, rightbarWidthRequest: null })
++  })
++
++  it('clears the active suggestion on layout disposal and ignores retained handles', () => {
++    const { instance, controller, info } = harness()
++    instance.actions.setRightbar(600)
++    const request = controller.requestRightbarWidth(350)
++    controller.dispose()
++    const disposed = instance.getSnapshot()
++    request.update(450)
++    request.dispose()
++    controller.dispose()
++    expect(instance.getSnapshot()).toBe(disposed)
++    expect(info()).toMatchObject({ rightbar: 600, rightbarWidthRequest: null })
++  })
++})

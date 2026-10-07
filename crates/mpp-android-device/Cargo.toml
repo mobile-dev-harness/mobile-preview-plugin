@@ -12,9 +12,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 mpp-core.workspace = true
 serde.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni.workspace = true
 
 # Android's C ABI needs audited unsafe blocks. Other crates keep unsafe forbidden.
 [lints.rust]

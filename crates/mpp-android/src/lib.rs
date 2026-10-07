@@ -3,12 +3,14 @@
 mod parse;
 mod process;
 mod sdk;
+mod stream;
 
 use std::{
     collections::HashSet,
     net::{Ipv4Addr, TcpListener},
     path::PathBuf,
     process::Stdio,
+    sync::Arc,
     time::Duration,
 };
 
@@ -19,6 +21,7 @@ use tokio::{
 };
 
 pub use parse::{avds as parse_avds, devices as parse_devices};
+pub use stream::{RunningStream, StreamOptions};
 
 const BOOT_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -26,6 +29,7 @@ const BOOT_TIMEOUT: Duration = Duration::from_secs(120);
 pub struct Android {
     adb: PathBuf,
     emulator: Option<PathBuf>,
+    stream_starts: Arc<stream::StreamStarts>,
 }
 
 impl Android {
@@ -35,7 +39,11 @@ impl Android {
     }
 
     pub fn with_tools(adb: PathBuf, emulator: Option<PathBuf>) -> Self {
-        Self { adb, emulator }
+        Self {
+            adb,
+            emulator,
+            stream_starts: Arc::default(),
+        }
     }
 
     pub fn with_emulator(mut self, emulator: PathBuf) -> Self {

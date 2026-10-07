@@ -5,6 +5,7 @@ import { ConnectionService } from './src/host/service.mjs';
 export const name = 'mobile-preview';
 export const inject = ['connection', 'sessionQuery'];
 export const API_PATH = '/api/mobile-preview/v1';
+export const MEDIA_PATH = '/api/mobile-preview/v1/media';
 const MAX_BODY_BYTES = 65_536;
 
 /** Validate deployment settings before registering any routes or starting a child. */
@@ -13,11 +14,12 @@ export function resolveConfig(input = {}) {
     throw new Error('mobile-preview config must be an object');
   }
   const allowed = new Set(['executable', 'adb', 'emulator', 'requestTimeoutMs',
-    'bootTimeoutMs', 'heartbeatMs', 'leaseTtlMs', 'sweepIntervalMs', 'maxClients']);
+    'bootTimeoutMs', 'heartbeatMs', 'leaseTtlMs', 'sweepIntervalMs', 'maxClients',
+    'deviceAssets', 'previewTimeoutMs', 'videoMaxSize', 'videoBitRate', 'videoMaxFps']);
   if (Object.keys(input).some(key => !allowed.has(key))) {
     throw new Error('mobile-preview config contains an unknown setting');
   }
-  for (const key of ['executable', 'adb', 'emulator']) {
+  for (const key of ['executable', 'adb', 'emulator', 'deviceAssets']) {
     const value = input[key];
     if (value === undefined && key !== 'executable') continue;
     if (typeof value !== 'string' || !isAbsolute(value) || value.includes('\0')) {
@@ -26,12 +28,15 @@ export function resolveConfig(input = {}) {
   }
   const result = {
     requestTimeoutMs: 15_000, bootTimeoutMs: 130_000, heartbeatMs: 15_000,
-    leaseTtlMs: 45_000, sweepIntervalMs: 1_000, maxClients: 32, ...input,
+    leaseTtlMs: 45_000, sweepIntervalMs: 1_000, maxClients: 32,
+    previewTimeoutMs: 45_000, videoMaxSize: 1280, videoBitRate: 4_000_000, videoMaxFps: 30, ...input,
   };
   const ranges = {
     requestTimeoutMs: [1_000, 60_000], bootTimeoutMs: [130_000, 300_000],
     heartbeatMs: [5_000, 60_000], leaseTtlMs: [15_000, 300_000],
     sweepIntervalMs: [100, 5_000], maxClients: [1, 32],
+    previewTimeoutMs: [30_000, 120_000], videoMaxSize: [256, 2048],
+    videoBitRate: [100_000, 20_000_000], videoMaxFps: [1, 60],
   };
   for (const [key, [min, max]] of Object.entries(ranges)) {
     if (!Number.isSafeInteger(result[key]) || result[key] < min || result[key] > max) {
@@ -41,6 +46,7 @@ export function resolveConfig(input = {}) {
   if (result.leaseTtlMs < result.heartbeatMs * 3) {
     throw new Error('mobile-preview leaseTtlMs must cover at least three heartbeats');
   }
+  if (result.videoMaxSize % 2 !== 0) throw new Error('mobile-preview videoMaxSize must be even');
   return result;
 }
 
@@ -100,7 +106,7 @@ async function requestBody(request) {
 }
 
 /** DSH authenticates this exact route before it reaches this handler. */
-export function createHandler(service) {
+export function createHandler(service, media = false) {
   return async request => {
     try {
       if (request.method !== 'POST') {
@@ -108,6 +114,13 @@ export function createHandler(service) {
       }
       const body = await requestBody(request);
       if (request.signal.aborted) throw failure('ABORTED', 'The request was cancelled.', 'Retry from the current conversation.');
+      if (media) {
+        const stream = await service.openMedia(body, { signal: request.signal });
+        return new Response(stream, { headers: {
+          'content-type': 'application/octet-stream', 'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+        } });
+      }
       const result = await service.handle(body, { signal: request.signal });
       return Response.json({ ok: true, result }, { headers: { 'cache-control': 'no-store' } });
     } catch (error) {
@@ -137,5 +150,8 @@ export function apply(ctx, input) {
   ctx.effect(() => () => service.dispose(), 'mobile-preview: owned Rust host and sessions');
   ctx.connection.fetch.register({
     path: API_PATH, methods: ['POST'], requestBody: 'buffered', fetch: createHandler(service),
+  });
+  ctx.connection.fetch.register({
+    path: MEDIA_PATH, methods: ['POST'], requestBody: 'buffered', fetch: createHandler(service, true),
   });
 }

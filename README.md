@@ -1,5 +1,7 @@
 # Mobile Preview Plugin
 
+[Technical overview and usage guide](https://mobile-dev-harness.github.io/mobile-preview-plugin-site/)
+
 [简体中文](README.zh-CN.md)
 
 Mobile Preview Plugin (MPP) is an independent Rust framework for connecting mobile
@@ -14,8 +16,10 @@ The current candidate implements **Android 10–17 / API 29–37 arm64-v8a adapt
 using a Unix host and a WebCodecs-capable client. Runtime qualification is still in
 progress; eligibility is not a compatibility pass. Native capture/input/cleanup
 has passed on the API 30–37 matrix targets, including an API 37 emulator with
-16 KiB pages; stock DSH Web GUI checks passed on API 30–34. API 35–37 GUI checks
-remain unverified.
+16 KiB pages. Stock DSH Web GUI checks passed on API 30–34 with the local matrix
+archive and on API 35–37 with the separately identified downloaded CI archive.
+That CI archive also passed official Desktop GUI checks on API 37, including
+input, Pause/Resume, window zoom, removal and reinstallation.
 The tested API 29 emulator environment is blocked by its codec surface path.
 Earlier API 32 emulator and API 36 physical-phone checks remain historical.
 See the [Android compatibility matrix](docs/ANDROID-COMPATIBILITY.md) for per-target
@@ -33,7 +37,7 @@ preview automatically after a new connection, then reports actual decoding progr
 | JSON-lines control protocol and bounded binary media framing | Implemented |
 | Rust/JNI capture, NDK H.264 encoding and WebCodecs playback | API 29–37 arm64 adapters implemented; runtime qualification tracked per target in the compatibility matrix |
 | Single-pointer input and basic Android keys | Implemented; Web/Desktop tap, drag and navigation verified on the target emulator |
-| DSH Web/Desktop connection button and device panel | Implemented; source Web/Desktop and packed stock Web GUI verified; official Desktop CLI installation passed, GUI pending |
+| DSH Web/Desktop connection button and device panel | Implemented; stock Web and official Desktop GUI verified on the recorded archives and targets |
 | iOS Simulator and iOS physical devices | Planned; no backend yet |
 
 Android physical devices can be discovered and probed through adb. Preview/input
@@ -52,9 +56,10 @@ artifact; no npm package or GitHub Release has been published. The
 official npm DSH `0.2.1-alpha.1` Web distribution in an isolated profile. This used
 no source patch, runtime-path overrides or model API key. The official Desktop
 `0.2.0-rc.2` app passed signature and notarization checks; `0.1.0-preview.3` was
-installed and enabled through its bundled CLI in an isolated profile. Its GUI
-preview/input acceptance remains pending. The Desktop GUI results below are from
-a source build.
+installed and enabled through its bundled CLI in an isolated profile. The exact
+downloaded CI preview.3 archive later passed that official app's GUI preview,
+input and lifecycle checks on API 37. Earlier source-built Desktop checks remain
+separate historical evidence.
 
 With an archive built using [the packaging guide](docs/DSH-DEVELOPMENT.md#build-a-self-contained-preview-package),
 open DSH **Plugins → Add plugin**, enter its absolute `.tgz` path, install it and
@@ -92,9 +97,27 @@ plugin unloaded its UI and left no MPP host, device bootstrap process or adb rev
 mapping. Local evidence is `target/stock-validation/evidence/stock-web-live.png`.
 The packaging guide also describes GitHub Actions builds triggered by relevant
 pushes or an explicit manual version. They upload workflow artifacts without
-publishing a release. A downloaded CI archive passed provenance, native API 37,
-and clean Web/Desktop CLI installation checks. Its GUI acceptance remains pending;
-see the exact archive identity and [release checklist](docs/RELEASING.md).
+publishing a release. The downloaded preview.3 archive from run `37652914514`
+(SHA-256 `d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`)
+passed provenance, native API 37 and clean Web/Desktop CLI installation checks.
+Stock Web `0.2.1-alpha.1` then decoded first frames on API 35–37 and verified
+dragging, Settings/Apps taps and Back/Home. API 37 also passed Pause/Resume across
+panel reopening and a 1280×820/narrow-viewport round trip while remaining Live.
+
+Official Desktop `0.2.0-rc.2` decoded the same archive on API 37 and verified
+Settings/Apps taps, dragging, Back/Home, Pause remaining paused across panel
+reopening, Resume returning to Live and a native window-zoom round trip. Removing
+the plugin through Plugin Manager removed its entry and renderer and cleaned its
+dependency, bundle, helper and owned reverse mapping; GUI reinstallation and
+enabling restored Live. Opening Plugin Manager hides the preview, so removal was
+tested from a previously connected chat. Web GUI removal after the API 35 connected
+session also removed the entry, replaced the device view with DSH's no-renderer
+placeholder, cleared dependency/bundle entries and left no helper or owned reverse
+mapping. The Web panel was hidden before entering Plugin Manager; GUI
+reinstallation, enabling and reconnecting on API 35 restored a decoded Live view.
+Evidence and screenshots are in `target/release-readiness/gui/`;
+see the archive identities and remaining limits in the
+[release checklist](docs/RELEASING.md).
 
 The `0.1.0-preview.2` archive was installed in the official stock npm DSH Web
 `0.2.1-alpha.1` distribution on macOS arm64. The nubia P0110 (Android 16/API 36,
@@ -104,8 +127,8 @@ Pause left no helper. Three separate native start/capture/stop cycles left no he
 adb reverse mapping or MPP virtual display. The same new host/device assets also
 passed the API 32 emulator capture/cleanup regression. Local evidence is
 `target/android36/evidence/phone-live.png`. Physical-device rotation, hot unplug
-and long GUI sessions were not tested in this increment. Official Desktop GUI
-acceptance remains pending despite the later successful CLI installation.
+and long GUI sessions were not tested in this increment. These phone results do
+not qualify the later CI archive on physical devices or other vendors.
 
 ## Build and try from source
 
@@ -366,11 +389,13 @@ arm64-v8a) completed the encoder lifecycle, reporting `encoder: "video/avc"`,
 Those historical probe runs verified configure/create-input-surface/start/dequeue/
 stop/release only, not the current live-video path.
 
-This repository is in development and its crates have `publish = false`. Source
-and staged plugin manifests retain `private: true`; producing a local `.tgz` does
+This source repository remains private and in development; its crates have
+`publish = false`. Source and staged plugin manifests retain `private: true`;
+producing a local `.tgz` does
 not publish it. MPP is licensed under [Apache-2.0](LICENSE); bundled dependencies
 retain their own licenses, recorded in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
-and `licenses/third-party/`, which are included in preview archives. Public
-publication has not been authorized or performed; the remaining acceptance and
-review steps are in [RELEASING.md](docs/RELEASING.md). Official DSH distribution
+and `licenses/third-party/`, which are included in preview archives. No npm
+publication or GitHub Release has been authorized or performed; the tested scope,
+remaining limits and review steps are in [RELEASING.md](docs/RELEASING.md). Official DSH distribution
 is a future upstream contribution, not a current inclusion or endorsement.
+This is a development preview, not a 1.0 stable release.

@@ -1,5 +1,7 @@
 # Mobile Preview Plugin
 
+[技术方案与使用指南](https://mobile-dev-harness.github.io/mobile-preview-plugin-site/)
+
 [English](README.md)
 
 Mobile Preview Plugin（MPP）是独立的 Rust 框架，用于为 DeepSeek Harness Web 和
@@ -11,7 +13,9 @@ mobile-dev-harness（mdh）。
 按键输入。当前候选版已实现 **Android 10–17 / API 29–37 arm64-v8a 适配**，
 需要 Unix 主机和支持 WebCodecs 的客户端。运行验收仍在进行，进入允许范围不代表
 兼容性通过。API 30–37 矩阵目标的原生采集／输入／清理已通过，其中 API 37 模拟器
-使用 16 KiB 页；API 30–34 的原版 DSH Web 界面检查已通过，API 35–37 界面仍未验证。所测
+使用 16 KiB 页。原版 DSH Web 的 API 30–34 界面检查使用本地矩阵归档通过，API 35–37
+使用单独标识的下载 CI 归档通过。同一个 CI 包还在 API 37 上通过官方 Desktop 的 GUI
+检查，包括输入、暂停／恢复、窗口缩放、卸载和重新安装。所测
 API 29 模拟器环境受编码器 surface 路径问题阻塞。此前 API 32 模拟器和 API 36
 真机结果作为历史证据保留。
 各目标结果与缺口见 [Android 兼容性矩阵](docs/ANDROID-COMPATIBILITY.md)。
@@ -28,7 +32,7 @@ API 29 模拟器环境受编码器 surface 路径问题阻塞。此前 API 32 �
 | JSON-lines 控制协议与有大小限制的二进制媒体分帧 | 已实现 |
 | Rust/JNI 采集、NDK H.264 编码和 WebCodecs 播放 | 已实现 API 29–37 arm64 适配，按兼容性矩阵逐目标验收 |
 | 单指触摸与基础 Android 按键 | 已实现，已在目标模拟器验证 Web/Desktop 点击、拖动和导航 |
-| DSH Web/Desktop 连接按钮与设备面板 | 已实现，源码 Web/Desktop 和原版 Web 安装包 GUI 已验证；官方 Desktop CLI 安装通过，GUI 待验收 |
+| DSH Web/Desktop 连接按钮与设备面板 | 已实现，原版 Web 与官方 Desktop GUI 已在记录的归档及目标上验证 |
 | iOS Simulator 与 iOS 真机 | 计划中，尚无后端 |
 
 目前可以通过 adb 发现和探测 Android 真机；预览／输入验收独立于设备发现，按下方
@@ -44,7 +48,8 @@ GitHub Release。`0.1.0-preview.1` 安装包已在官方 npm DSH `0.2.1-alpha.1`
 Web 发行版的独立 profile 中通过干净安装、播放和卸载验收，未使用源码补丁、
 运行文件路径覆盖或模型 API key。官方 Desktop `0.2.0-rc.2` 应用已通过签名和
 公证检查；`0.1.0-preview.3` 已通过其内置 CLI 在独立 profile 中安装并启用。
-该发行版的 GUI 预览／输入仍待验收，下方 Desktop GUI 结果来自源码构建。
+随后，下载的精确 CI preview.3 归档在 API 37 上通过了该官方应用的 GUI 预览、输入
+和生命周期检查。此前源码构建 Desktop 的检查继续作为独立历史证据保留。
 
 按照[打包说明](docs/DSH-DEVELOPMENT.md#build-a-self-contained-preview-package)生成安装包后，
 在 DSH 的 **Plugins → Add plugin** 中输入 `.tgz` 的绝对路径，安装并启用。
@@ -78,8 +83,23 @@ Web 客户端需要 H.264 WebCodecs 支持。
 设备 bootstrap 进程和 adb reverse 映射均已清理。本地证据为
 `target/stock-validation/evidence/stock-web-live.png`。打包说明还介绍了由相关路径
 推送或显式指定手动版本触发的 GitHub Actions 构建，仅上传工作流产物，不发布版本。
-下载回来的 CI 安装包已通过源码溯源、API 37 原生运行和 Web／Desktop 干净 CLI
-安装检查；该包的 GUI 验收仍待完成。具体归档身份和剩余项见[发布检查清单](docs/RELEASING.md)。
+从运行 `37652914514` 下载的 preview.3 归档（SHA-256
+`d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`）
+已通过源码溯源、API 37 原生运行和 Web／Desktop 干净 CLI 安装检查。随后，原版
+Web `0.2.1-alpha.1` 在 API 35–37 上解码首帧，并验证拖动、Settings／Apps 点击
+以及 Back／Home。API 37 还通过重开面板后的 Pause／Resume，以及 1280×820 和
+窄视口来回切换保持 Live 的检查。
+
+官方 Desktop `0.2.0-rc.2` 在 API 37 上解码了同一个归档，验证 Settings／Apps
+点击、拖动、Back／Home、主动暂停在重开面板后仍保持、Resume 返回 Live，以及
+原生窗口缩放来回切换。在插件管理器移除插件后，入口和 renderer 已卸载，依赖、
+bundle、helper 与所属 reverse 映射完成清理；通过 GUI 重新安装并启用后恢复 Live。
+打开插件管理器会隐藏预览，因此卸载测试从此前已连接的聊天进入。Web 在 API 35
+已连接会话之后执行 GUI 卸载，同样移除了入口，将设备视图替换为 DSH 的无 renderer
+占位，清理依赖／bundle，且没有遗留 helper 或所属 reverse 映射。Web 先收起面板，
+再进入插件管理器；通过 GUI 重新安装、启用并连接 API 35 后已恢复真实 Live 画面。
+证据与截图位于 `target/release-readiness/gui/`；归档身份与
+剩余范围见[发布检查清单](docs/RELEASING.md)。
 
 `0.1.0-preview.2` 安装包已安装到 macOS arm64 上的官方 npm DSH Web
 `0.2.1-alpha.1` 发行版。nubia P0110（Android 16/API 36、arm64）的 1264×2800
@@ -88,7 +108,7 @@ Web 客户端需要 H.264 WebCodecs 支持。
 启动／采集／停止均清理了 helper、adb reverse 映射和 MPP 虚拟显示。相同的新
 主程序与设备端产物还通过了 API 32 模拟器的采集／清理回归。本地证据为
 `target/android36/evidence/phone-live.png`。本次未测试真机旋转、热拔插和长时间
-GUI 运行。此后官方 Desktop 的 CLI 安装已通过，GUI 验收仍待完成。
+GUI 运行。这些手机结果不代表后续 CI 归档已经通过真机或其他厂商验收。
 
 ## 从源码构建与试用
 
@@ -317,10 +337,11 @@ adb -t "$MPP_TRANSPORT_ID" shell rm /data/local/tmp/mpp-codec-probe
 `capture_verified: false` 和 `first_output: null`。这仅验证了配置、创建输入
 surface、启动、输出出队、停止和释放；这些历史探测没有验证当前的实时视频链路。
 
-仓库处于开发阶段，各 crate 均设置了 `publish = false`，源码和暂存插件的 manifest
-均保留 `private: true`；生成本地 `.tgz` 不会发布它。MPP 采用
+源码仓库仍为私有并处于开发阶段，各 crate 均设置了 `publish = false`，源码和暂存插件的
+manifest 均保留 `private: true`；生成本地 `.tgz` 不会发布它。MPP 采用
 [Apache-2.0](LICENSE) 许可；随包依赖保留各自的许可，记录于
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 和 `licenses/third-party/`，
-这些文件也随预览包分发。公开发布尚未授权，也未执行；剩余验收和审核步骤见
+这些文件也随预览包分发。npm 发布或 GitHub Release 尚未授权，也未执行；已测范围、
+剩余限制和审核步骤见
 [RELEASING.md](docs/RELEASING.md)。纳入 DSH 官方分发属于未来的上游贡献目标，
-不代表目前已被内置或获得认可。
+不代表目前已被内置或获得认可。这是开发预览，不是 1.0 稳定版。

@@ -15,7 +15,8 @@ input and basic Android keys; it does not expose agent tools or give a model vis
 - An H.264 WebCodecs-capable client. Earlier preview archives were checked on the
   official npm DSH `0.2.1-alpha.1` Web distribution. Source Web/Desktop checks used
   commit `5badb15009ae1756c3afe0ae0cef1faafc290ccc`. The official Desktop
-  `0.2.0-rc.2` passed CLI installation checks; its GUI acceptance is pending.
+  `0.2.0-rc.2` passed CLI installation and GUI checks on API 37 using the exact
+  downloaded CI preview.3 archive identified below.
 
 Rust, Android NDK and JDK are build prerequisites only; they are not needed to use
 the archive. The bundled Rust host and Android assets are resolved relative to the
@@ -60,8 +61,27 @@ The official Desktop `0.2.0-rc.2` app passed signature and notarization checks.
 Its bundled CLI installed `0.1.0-preview.3` into an isolated profile with the bundle
 enabled and native hashes matching the archive. The isolated profile used a
 separate webserver port to avoid the existing app instance. This installation
-check does not qualify Desktop video, input or lifecycle behavior; GUI acceptance
-remains pending.
+check is separate from the later GUI qualification of the downloaded CI archive.
+
+The downloaded `0.1.0-preview.3` from workflow run `37652914514`, source commit
+`9ec7afad96f486b8050f2f41e6ca8bade24c9b8c`, has SHA-256
+`d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`.
+On official Desktop `0.2.0-rc.2` and the API 37 emulator, it passed decoded first
+frame, Settings/Apps taps, dragging, Back/Home, Pause across panel reopening,
+Resume to Live and a native window-zoom round trip remaining Live. GUI removal
+removed its entry and renderer, dependency/bundle and owned helper/reverse mapping;
+GUI reinstallation and enabling restored Live. Plugin Manager hides the preview,
+so removal began from a previously connected chat.
+
+On stock Web `0.2.1-alpha.1`, the same CI archive passed decoded first frame,
+dragging, Settings/Apps taps and Back/Home on API 35–37. API 37 also passed
+Pause/Resume across panel reopening and a 1280×820/narrow-viewport round trip
+remaining Live. GUI removal after the API 35 connected session removed its entry,
+replaced the device view with DSH's no-renderer placeholder, cleared the dependency
+and bundle, and left no helper or owned reverse mapping. The panel was hidden
+before entering Plugin Manager. GUI reinstallation, enabling and reconnecting on
+API 35 restored a decoded Live view. Records and screenshots are under
+`target/release-readiness/gui/` in the source checkout.
 
 The earlier `0.1.0-preview.2` archive was installed into the official stock npm DSH
 `0.2.1-alpha.1` Web distribution on macOS arm64. On one nubia P0110 physical phone
@@ -75,8 +95,11 @@ capture/cleanup regression.
 These are historical passes for those packages and targets; they do not qualify
 the preview.3 matrix candidate on every API or vendor. Its native testing has
 passed H.264, Home effects and cleanup on the API 30–37 matrix targets; stock DSH
-Web first-frame and input checks passed on API 30–34. API 35–37 GUI remains
-unverified. The API 37 native run also passed with an observed 16,384-byte page size.
+Web first-frame and input checks passed on API 30–34. The later API 35–37 Web and
+official Desktop GUI passes use the CI archive identified above, not this local
+matrix archive. Its same version number does not transfer qualification between
+the two checksums. The API 37 native run also passed with an observed 16,384-byte
+page size.
 The tested API 29 emulator environment is blocked by a Codec2 surface failure that
 also affected scrcpy 4.1 and system screenrecord. The final host-GPU/Vulkan-disabled
 control still failed with no video packets, while cleanup passed. No workaround is
@@ -84,7 +107,9 @@ shipped. See the source repository's
 `docs/ANDROID-COMPATIBILITY.md` for exact target evidence.
 
 Physical-device rotation, hot unplug and long GUI sessions were not tested in this
-increment. Official Desktop GUI acceptance remains pending. Audio,
+increment. The CI archive's GUI checks used emulators and do not extend the earlier
+phone's coverage to other vendors, physical USB hot unplug, sustained sessions or
+extreme interruptions. Audio,
 recording, multi-touch, text/IME and clipboard integration are not implemented.
 Device rotation ends the current capture epoch.
 
@@ -120,8 +145,9 @@ MPP is licensed under Apache-2.0. The archive includes `LICENSE`,
 their own licenses. Packaging checks the inventory against `Cargo.lock` and the
 notice-file hashes, and rejects source changes during the build.
 
-The source and staged package remain `private: true`. This local packaging step
-does not publish to npm or GitHub Releases. Public publication has not been
-authorized or performed; the source repository's `docs/RELEASING.md` tracks the
-remaining acceptance and review steps. MPP is not an official DeepSeek plugin or
+The source repository remains private; source and staged package manifests retain
+`private: true`. This is a development preview, not a 1.0 stable release. Local
+packaging does not publish to npm or GitHub Releases. Neither has been authorized
+or performed; the source repository's `docs/RELEASING.md` tracks the tested scope,
+remaining limits and publication review. MPP is not an official DeepSeek plugin or
 distribution component.

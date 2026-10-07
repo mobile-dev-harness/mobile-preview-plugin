@@ -123,9 +123,8 @@ the bundle was enabled and its native files matched the archive manifest hashes.
 The profile used a separate webserver port to avoid a conflict with the existing
 app instance. This was a test configuration change, not a DSH source patch.
 Evidence is `target/release-readiness/desktop/evidence/install-preview3.json` and
-`target/release-readiness/desktop/install-preview3.log`. Official Desktop GUI
-preview/input/lifecycle acceptance remains pending because GUI control was
-unavailable during that check.
+`target/release-readiness/desktop/install-preview3.log`. The later GUI acceptance
+of the exact downloaded CI archive is recorded separately below.
 
 The preview.1 packaging increment passed 143 plugin tests and 19 script tests,
 including package relocation and concurrent packaging. Rust formatting and Clippy
@@ -146,7 +145,8 @@ native assets passed an API 32 emulator regression with configuration/key/delta
 packets and cleanup. Local screenshot: `target/android36/evidence/phone-live.png`.
 This evidence covers these two targets; it does not qualify other Android 16
 devices or vendors. Physical rotation, hot unplug and long GUI sessions were not
-newly tested. Official Desktop GUI acceptance remains pending.
+newly tested. Later CI-archive GUI checks used emulators and do not extend this
+phone result to that archive or other vendors.
 
 The API 36 change passed 94 Rust workspace tests, host and Android release Clippy
 under Rust 1.88, and seven package tests after the runtime-manifest update. It
@@ -163,10 +163,33 @@ builds the archive, verifies `source.commit` equals the run's `GITHUB_SHA` and
 artifacts retained for 14 days. It has read-only repository contents permission
 and performs no npm publication or GitHub Release. The downloaded artifact from
 run `37652914514` passed provenance, native API 37, clean Web/Desktop CLI installation,
-backend discovery and Desktop removal checks; GUI acceptance remains pending.
-The source and staged package remain private; MPP uses Apache-2.0
-with bundled third-party notices. See [RELEASING.md](RELEASING.md) for the remaining
-acceptance and manual review steps.
+backend discovery and Desktop removal checks. That archive is preview.3 from source
+commit `9ec7afad96f486b8050f2f41e6ca8bade24c9b8c`, SHA-256
+`d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`.
+
+The exact downloaded archive then passed stock Web `0.2.1-alpha.1` GUI checks on
+API 35–37: decoded first frame, dragging, Settings/Apps taps and Back/Home with
+visible effects. API 37 also passed Pause persisting across panel reopening,
+Resume to Live and a 1280×820/narrow-viewport round trip retaining Live. GUI removal
+after the connected API 35 session removed the mobile entry, replaced the device
+view with DSH's no-renderer placeholder, cleared dependency/bundle entries, and
+left no helper or owned reverse mapping. The panel was hidden before Plugin Manager.
+GUI reinstallation, enabling and reconnecting on API 35 restored a decoded Live view.
+
+Official Desktop `0.2.0-rc.2` passed the same archive's decoded first frame,
+Settings/Apps taps, dragging, Back/Home, Pause with helper/reverse cleanup, Pause
+across panel reopening, Resume and a native window-zoom round trip on API 37.
+GUI removal removed its entry and renderer and cleaned its dependency, bundle,
+helper and reverse mapping. GUI reinstallation and enabling restored Live. Opening
+Plugin Manager hides preview, so removal began from a previously connected chat.
+Records are `target/release-readiness/gui/{desktop,web-matrix,web-ui-remove}.json`,
+with screenshots in the same directory. Local matrix API 30–34 Web results still
+belong to the earlier local archive, despite the shared preview.3 version number.
+
+The source repository remains private and staged packages retain `private: true`;
+MPP uses Apache-2.0 with bundled third-party notices. See [RELEASING.md](RELEASING.md)
+for the closed engineering gates in the tested scope, remaining limits and manual
+publication review.
 
 ## Compatibility baseline and prerequisites
 
@@ -324,9 +347,10 @@ The opt-in native stream runner is documented in the
 Use an exact authorized serial and put a non-launcher app such as Settings in the
 foreground before an input-enabled run; the Home check needs an actual transition.
 `--no-input` skips Home and cannot qualify input effects. Native matrix runs have
-passed on API 30–37; stock DSH Web first-frame and input checks passed on API 30–34.
-API 35–37 GUI remains unverified. The API 37 run also checked native operation on
-16 KiB pages. The API 29 environment remains blocked by the independently
+passed on API 30–37. Stock DSH Web first-frame and input checks passed on API 30–34
+with the local matrix archive and API 35–37 with the downloaded CI archive above;
+the CI archive also passed official Desktop GUI on API 37. The API 37 run checked
+native operation on 16 KiB pages. The API 29 environment remains blocked by the independently
 reproduced codec surface failure, including the final host-GPU/Vulkan-disabled
 control. That failed capture left no packets but cleaned up its owned resources;
 the matrix links the native and baseline evidence.
@@ -516,8 +540,10 @@ Tests cover native protocol/input state, MPP1 parsing, decoder recovery, control
 sequence/epoch checks, bounded video backpressure and lifecycle cancellation. The
 packaging tests use fake installed tools and require no SDK or device. Passing
 these checks is not a full compatibility matrix. Further qualification must cover
-additional GUI restart/reconnect cycles, focus loss, unload, backend failure and
-sustained GUI playback in both pinned clients, plus additional devices and versions.
+additional GUI restart/reconnect cycles, focus loss, backend failure, extreme
+interruptions and sustained GUI playback in both clients, plus additional devices
+and versions. The exact CI archive's GUI removal/reinstallation observations above
+cover those explicit flows, not every unload or interruption path.
 
 Connection ownership is local to one Rust Host process. The native helper additionally
 rejects competing MPP capture processes through a device-side abstract-socket lock;
@@ -527,4 +553,5 @@ machine, not automatically to the browser's machine. No continuous frames enter
 the model context, and a panel does not itself grant agent vision/control.
 
 MPP remains a private development preview: no public package release or official
-DSH inclusion is claimed, and no release version or date is promised here.
+DSH inclusion is claimed, and no release version or date is promised here. It is
+not a 1.0 stable release.

@@ -454,9 +454,10 @@ Android release Clippy under Rust 1.88, and the package tests (7) passed.
 
 These checks qualify the two tested targets, not every Android 16 device, vendor
 or unsupported intermediate API level. Physical rotation, hot unplug and long GUI
-sessions were not newly tested. Stock Desktop installation remains untested; older
-Desktop evidence above uses a source build. No bootstrap change, dependency or
-public release was introduced.
+sessions were not newly tested in that increment. Its Desktop evidence used a
+source build. Subsequent CI-archive installation and official Desktop GUI checks
+are recorded in [the release acceptance report](RELEASING.md). No bootstrap change,
+dependency or public release was introduced by the API 36 increment.
 
 [scrcpy-capture]: https://github.com/Genymobile/scrcpy/blob/2926c06c5dc3064ae6d8db706f1a98a37cfcf3f0/server/src/main/java/com/genymobile/scrcpy/video/ScreenCapture.java
 [scrcpy-encoder]: https://github.com/Genymobile/scrcpy/blob/2926c06c5dc3064ae6d8db706f1a98a37cfcf3f0/server/src/main/java/com/genymobile/scrcpy/video/SurfaceEncoder.java

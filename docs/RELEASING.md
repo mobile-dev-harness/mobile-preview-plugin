@@ -1,7 +1,8 @@
 # Preview release readiness
 
 MPP is an unofficial development preview licensed under [Apache-2.0](../LICENSE).
-The source crates retain `publish = false` and the plugin retains `private: true`.
+The source repository remains private, its crates retain `publish = false`, and
+the plugin retains `private: true`. This is not a 1.0 stable release.
 No npm publication or GitHub Release has been authorized or performed. Local
 packaging and GitHub Actions artifact uploads do not publish a release.
 
@@ -40,27 +41,54 @@ official Desktop `0.2.0-rc.2` profiles; both enabled the plugin and discovered t
 device through its authenticated backend. Desktop removal cleared the dependency,
 bundle entry, package link and native host; after restart its plugin route returned
 404. Reinstallation restored the backend. An earlier local preview.3-to-preview.4
-CLI upgrade also passed. These are installation/backend checks, not visible
-first-frame or touch verification. Evidence is under
+CLI upgrade also passed. These installation/backend checks are recorded under
 `target/release-readiness/{remote-artifact,native-ci,desktop-ci,web-ci}`.
 
-Before selecting a first public preview, complete or explicitly narrow the stated
-qualification scope for these open checks:
+The same downloaded archive subsequently passed separate GUI checks:
 
-- Stock DSH Web GUI on API 35–37: decoded first frame and visible tap/drag/navigation
-  effects. Browser control became unavailable after the API 34 check.
-- Official Desktop GUI: clean installation, first frame, tap/drag/Home/Back,
-  Pause/Resume across panel reopening, and removal while connected with host,
-  helper and owned reverse mappings cleaned up. The CLI installation evidence at
-  `target/release-readiness/desktop/evidence/install-preview3.json` does not cover
-  these GUI checks.
-- API 29 native and GUI checks on a working target. The tested emulator codec
+- Stock Web `0.2.1-alpha.1`, API 35–37: actual decoded first frame, app-drawer
+  dragging or list scrolling, Settings/Apps taps, Back to Settings and Home to the
+  launcher. API 37 additionally passed Pause remaining paused across panel
+  reopening, Resume returning to Live and a 1280×820/narrow-viewport round trip
+  while staying Live. GUI removal after the connected API 35 session removed the
+  mobile entry, replaced its device view with DSH's no-renderer placeholder,
+  cleared the dependency/bundle and left no helper or owned reverse mapping. The
+  panel was hidden before entering Plugin Manager. GUI reinstallation, enabling
+  and reconnecting on API 35 restored a decoded Live view.
+- Official Desktop `0.2.0-rc.2`, API 37 with 16 KiB pages: actual decoded first
+  frame, Settings/Apps taps, dragging, Back/Home, Pause with helper/reverse cleanup,
+  Pause persisting across panel reopening, Resume returning to Live and a native
+  window-zoom round trip retaining Live. GUI removal removed the plugin entry and
+  renderer and cleared its dependency, bundle, helper and owned reverse mapping.
+  Opening Plugin Manager hides preview, so this removal began from a previously
+  connected chat. GUI reinstallation and enabling returned to Live.
+
+The Desktop and Web matrix JSON records identify the exact archive hash above.
+GUI records are in `target/release-readiness/gui/{desktop,web-matrix,web-ui-remove}.json`;
+screenshots are in the same directory, including `web-reinstalled-api35.png`.
+These checks close the previously unverified API 35–37 Web and
+official Desktop first-frame/input gates. They do not transfer the earlier local
+archive's API 30–34 qualification to the CI archive or establish sustained GUI
+reliability on all devices.
+
+Engineering acceptance is **`closed_for_tested_scope`**: the downloaded CI
+archive's Web API 35–37 and official Desktop API 37 first-frame/input and recorded
+lifecycle checks passed. The earlier local archive retains its separate API 30–34
+Web results. This status does not select a release version, authorize a public
+binary release or claim a full compatibility matrix. Product-site publication is
+separate from npm or GitHub Release publication.
+
+Keep these explicit exclusions and publication decisions:
+
+- API 29 is outside the qualified runtime scope pending a working target. The tested emulator codec
   surface failed independently in MPP, scrcpy and system screenrecord; cleanup
   passed, but capture/input remains unverified.
-- Record the limits of physical-device coverage, rotation, hot unplug and sustained
-  GUI sessions. The earlier API 36 nubia phone and source Desktop passes are
-  historical evidence, not passes for every later archive or vendor.
-- Complete GUI acceptance of the exact selected remote archive before publication.
+- Retain the limits of physical-device coverage, rotation, physical USB hot unplug,
+  sustained GUI sessions and extreme interruptions. The earlier API 36 nubia phone
+  and source Desktop passes are historical evidence, not passes for every later
+  archive or vendor. The current CI archive's GUI targets were emulators.
+- Select an exact package version, checksum and qualification scope, then review
+  its retained evidence before any separately authorized npm or GitHub Release.
 
 ## Build and identify the candidate
 

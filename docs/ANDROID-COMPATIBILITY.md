@@ -1,6 +1,7 @@
 # Android compatibility qualification
 
-The recorded matrix candidate is `0.1.0-preview.3`. Its implemented arm64 adapter policy
+The recorded archives both use `0.1.0-preview.3` but have different checksums:
+the local matrix archive and the downloaded CI archive below. Their arm64 adapter policy
 covers Android 10–17 / API 29–37. Eligibility means a matching capture/input path
 exists; it does not mean that every version, emulator image or vendor device has
 passed runtime qualification. APIs outside 29–37 and non-arm64 devices are rejected.
@@ -31,8 +32,17 @@ is `target/android-matrix/verification.json`, recorded on 2026-10-07. It identif
 `6e7da3cc75301de0a405aa7bbe058055c6d5ff3cfc64b2a8c5d01d33062c418b`, and records
 that its native assets and JavaScript runtime match the tested candidate. The
 preview.1/preview.2 records remain historical and are not automatically passes for
-preview.3. Likewise, the `preview.4` examples in the packaging guide do not inherit
+preview.3. The subsequent Web API 35–37 and official Desktop API 37 GUI checks used
+the downloaded CI archive from run `37652914514`, source commit
+`9ec7afad96f486b8050f2f41e6ca8bade24c9b8c`, SHA-256
+`d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`.
+The same version string does not make these archives interchangeable. Likewise,
+the `preview.4` examples in the packaging guide do not inherit
 this qualification; a new archive needs its own provenance and acceptance record.
+
+In the table, native matrix results and Web API 30–34 results use the local
+archive; Web API 35–37 results use the CI archive. The CI archive separately
+passed native API 37 capture/Home and SIGTERM cleanup on the 16 KiB target.
 
 | Android | API | Framework path | Current evidence | Remaining qualification |
 | --- | --- | --- | --- | --- |
@@ -42,17 +52,30 @@ this qualification; a new archive needs its own provenance and acceptance record
 | 12L | 32 | SurfaceControl / InputManager | Native capture/input/cleanup and stock DSH Web GUI passed | Broader target and sustained-session coverage |
 | 13 | 33 | SurfaceControl / InputManager | Native capture/input/cleanup and stock DSH Web GUI passed | Broader target and sustained-session coverage |
 | 14 | 34 | DisplayManager / InputManagerGlobal | Native capture/input/cleanup and stock DSH Web GUI passed | Broader target and sustained-session coverage |
-| 15 | 35 | DisplayManager / InputManagerGlobal | Native capture/input/cleanup passed | GUI not yet verified |
-| 16 | 36 | DisplayManager / InputManagerGlobal | Native capture/input/cleanup passed; historical preview.2 phone GUI evidence retained separately | Candidate GUI not yet verified; wider vendor coverage |
-| 17 | 37 | DisplayManager / InputManagerGlobal | Native capture/input/cleanup passed on Android 17 with 16,384-byte pages | GUI not yet verified |
+| 15 | 35 | DisplayManager / InputManagerGlobal | Local native capture/input/cleanup and CI archive stock Web GUI passed | Broader target and sustained-session coverage |
+| 16 | 36 | DisplayManager / InputManagerGlobal | Local native capture/input/cleanup and CI archive stock Web GUI passed; preview.2 phone evidence remains historical | Wider vendor and sustained-session coverage |
+| 17 | 37 | DisplayManager / InputManagerGlobal | Local and CI native checks passed with 16,384-byte pages; CI archive stock Web and official Desktop GUI passed | Broader 16 KiB target and sustained-session coverage |
 
 The API 30–34 stock DSH Web checks verified an actual decoded first frame,
 dragging from the launcher into the app drawer, tapping Settings, and a visible
 page change after Back. The API 34 Back check specifically returned from the Apps
 subpage to Settings. Screenshots and `target/android-matrix/gui-results.json`
-record these checks. API 35–37 GUI checks remain unverified; a native pass does not substitute
-for browser decoding or visible input effects. Browser control became unavailable
-after API 34 verification; these pending checks are not recorded as GUI failures.
+record these local-archive checks.
+
+The exact CI archive passed stock Web `0.2.1-alpha.1` GUI checks on API 35–37:
+decoded first frame, dragging into the app drawer or scrolling, Settings/Apps taps,
+Back from Apps to Settings and Home to the launcher. API 37 also kept explicit
+Pause across panel reopening, returned to Live with Resume and stayed Live through
+a 1280×820/narrow-viewport round trip. These results and screenshots are recorded in
+`target/release-readiness/gui/web-matrix.json` and its directory. Web GUI removal
+after the connected API 35 session removed the mobile entry, replaced the device
+view with DSH's no-renderer placeholder, cleared the dependency/bundle and left no
+helper or owned reverse mapping. The panel was hidden before Plugin Manager;
+the record is `target/release-readiness/gui/web-ui-remove.json` with screenshot
+`web-uninstalled.png` in the same directory. GUI reinstallation, enabling and
+reconnecting on API 35 restored a decoded Live view, captured in
+`target/release-readiness/gui/web-reinstalled-api35.png`. These are separate GUI observations;
+native packet delivery alone does not establish decoding or visible input effects.
 
 The API 37 native report (`target/android-matrix/api37-native.json`) records one
 configuration packet, three keyframes and 86 delta frames, a verified transition
@@ -89,7 +112,7 @@ Home/Back, Pause/Resume, and three native capture/cleanup cycles. Neither record
 qualifies other vendors or stock Desktop GUI behavior. Phone rotation, hot unplug
 and long GUI sessions remain separate qualification work.
 
-## Official Desktop installation evidence
+## Official Desktop installation and GUI evidence
 
 The official macOS arm64 Desktop `0.2.0-rc.2` app passed signature and notarization
 checks. Its bundled CLI installed `0.1.0-preview.3` into an isolated profile with
@@ -99,11 +122,19 @@ was required. Evidence is
 `target/release-readiness/desktop/evidence/install-preview3.json` and
 `target/release-readiness/desktop/install-preview3.log`.
 
-GUI control was unavailable during that check. First decoded frame, visible
-tap/drag/Home/Back effects, Pause/Resume, panel reopening and removal cleanup on
-this official Desktop distribution remain unverified. The installation check
-and earlier source Desktop GUI checks do not close those gaps. Remaining release
-acceptance is tracked in [RELEASING.md](RELEASING.md).
+The exact downloaded CI archive subsequently passed GUI checks in this official
+Desktop distribution on API 37: decoded first frame, Settings/Apps taps, dragging,
+Back/Home, Pause with helper/reverse cleanup, Pause remaining paused after panel
+reopening, Resume returning to Live and a native window-zoom round trip retaining
+Live. GUI removal removed the plugin entry and renderer and cleared the plugin
+dependency, bundle, helper and owned reverse mapping. Opening Plugin Manager hides
+the preview, so removal began from a previously connected chat. GUI reinstallation
+and enabling restored a decoded live preview. The record and screenshots are in
+`target/release-readiness/gui/desktop.json` and its directory.
+
+These checks qualify this archive and API 37 target, not every Desktop/device
+combination or extreme interruption path. Remaining scope and review are tracked
+in [RELEASING.md](RELEASING.md).
 
 ## Reproduce native smoke checks
 
@@ -139,4 +170,5 @@ content. A successful native check does not prove browser decoding or rendering.
 Use stock DSH Web for the separate GUI check. After installing a new native package
 version, restart the DSH Host before connecting: hot reload can retain an old
 package-relative asset path. Keep the previous and candidate package evidence
-separate. The candidate remains a private local archive, not a public release.
+separate. The source repository remains private and neither recorded archive is
+a public npm or GitHub Release.

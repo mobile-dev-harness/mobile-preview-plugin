@@ -1,0 +1,2 @@
+# Preserve byte-exact upstream notices, including their whitespace.
+licenses/third-party/** -whitespace

@@ -34,11 +34,6 @@ jobs:
     env:
       RUSTUP_TOOLCHAIN: '1.88'
       MACOSX_DEPLOYMENT_TARGET: '14.0'
-      ANDROID_HOME: ${{ runner.temp }}/mpp-android-sdk
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/mpp-android-sdk
-      ANDROID_NDK_HOME: ${{ runner.temp }}/mpp-android-sdk/ndk/26.1.10909125
-      MPP_BUILD_TOOLS: ${{ runner.temp }}/mpp-android-sdk/build-tools/35.0.0
-      MPP_ANDROID_JAR: ${{ runner.temp }}/mpp-android-sdk/platforms/android-29/android.jar
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,6 +48,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Configure isolated Android SDK
+        run: |
+          MPP_SDK_ROOT="$RUNNER_TEMP/mpp-android-sdk"
+          mkdir -p "$MPP_SDK_ROOT"
+          {
+            echo "ANDROID_HOME=$MPP_SDK_ROOT"
+            echo "ANDROID_SDK_ROOT=$MPP_SDK_ROOT"
+            echo "ANDROID_NDK_HOME=$MPP_SDK_ROOT/ndk/26.1.10909125"
+            echo "MPP_BUILD_TOOLS=$MPP_SDK_ROOT/build-tools/35.0.0"
+            echo "MPP_ANDROID_JAR=$MPP_SDK_ROOT/platforms/android-29/android.jar"
+          } >> "$GITHUB_ENV"
       - name: Install pinned Android build tools
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:

@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = ["crates/mpp-core", "crates/mpp-android", "crates/mpp-host", "crates/mpp-android-device"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+repository = "https://github.com/mobile-dev-harness/mobile-preview-plugin"
+
+[workspace.dependencies]
+mpp-core = { path = "crates/mpp-core" }
+mpp-android = { path = "crates/mpp-android" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["io-std", "io-util", "macros", "process", "rt-multi-thread", "sync", "time"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

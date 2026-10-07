@@ -1,0 +1,31 @@
+{
+  "name": "@mobile-dev-harness/dsh-mobile-preview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mobile device connection panel backed by the independent Rust MPP host",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["index.js", "client.js", "src", "cordis.patch.yml"],
+  "scripts": {
+    "check": "node --check index.js && node --check client.js && node --test tests/*.test.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dsh": {
+    "bundle": {"patch": "./cordis.patch.yml"},
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-session"
+      ]
+    }
+  }
+}

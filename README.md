@@ -92,8 +92,9 @@ plugin unloaded its UI and left no MPP host, device bootstrap process or adb rev
 mapping. Local evidence is `target/stock-validation/evidence/stock-web-live.png`.
 The packaging guide also describes GitHub Actions builds triggered by relevant
 pushes or an explicit manual version. They upload workflow artifacts without
-publishing a release. Remote build acceptance remains pending; see the
-[release checklist](docs/RELEASING.md).
+publishing a release. A downloaded CI archive passed provenance, native API 37,
+and clean Web/Desktop CLI installation checks. Its GUI acceptance remains pending;
+see the exact archive identity and [release checklist](docs/RELEASING.md).
 
 The `0.1.0-preview.2` archive was installed in the official stock npm DSH Web
 `0.2.1-alpha.1` distribution on macOS arm64. The nubia P0110 (Android 16/API 36,

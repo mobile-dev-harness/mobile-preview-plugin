@@ -78,7 +78,8 @@ Web 客户端需要 H.264 WebCodecs 支持。
 设备 bootstrap 进程和 adb reverse 映射均已清理。本地证据为
 `target/stock-validation/evidence/stock-web-live.png`。打包说明还介绍了由相关路径
 推送或显式指定手动版本触发的 GitHub Actions 构建，仅上传工作流产物，不发布版本。
-远端构建验收仍待完成，见[发布检查清单](docs/RELEASING.md)。
+下载回来的 CI 安装包已通过源码溯源、API 37 原生运行和 Web／Desktop 干净 CLI
+安装检查；该包的 GUI 验收仍待完成。具体归档身份和剩余项见[发布检查清单](docs/RELEASING.md)。
 
 `0.1.0-preview.2` 安装包已安装到 macOS arm64 上的官方 npm DSH Web
 `0.2.1-alpha.1` 发行版。nubia P0110（Android 16/API 36、arm64）的 1264×2800

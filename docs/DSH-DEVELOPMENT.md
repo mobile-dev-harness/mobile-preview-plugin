@@ -161,8 +161,10 @@ macOS arm64 runner (`macos-15`), Rust 1.88, NDK 26.1.10909125, Android Build Too
 builds the archive, verifies `source.commit` equals the run's `GITHUB_SHA` and
 `source.dirty` is false, and uploads `.tgz`/`.sha256` files as GitHub Actions
 artifacts retained for 14 days. It has read-only repository contents permission
-and performs no npm publication or GitHub Release. Remote artifact acceptance
-remains pending. The source and staged package remain private; MPP uses Apache-2.0
+and performs no npm publication or GitHub Release. The downloaded artifact from
+run `37652914514` passed provenance, native API 37, clean Web/Desktop CLI installation,
+backend discovery and Desktop removal checks; GUI acceptance remains pending.
+The source and staged package remain private; MPP uses Apache-2.0
 with bundled third-party notices. See [RELEASING.md](RELEASING.md) for the remaining
 acceptance and manual review steps.
 

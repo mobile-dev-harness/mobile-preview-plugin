@@ -26,6 +26,24 @@ attempt alongside the successful report at
 `target/release-readiness/native/summary.json`. This is neither a physical USB
 unplug test nor a long GUI-session qualification.
 
+The [remote packaging run](https://github.com/mobile-dev-harness/mobile-preview-plugin/actions/runs/37652914514)
+and [six-job CI run](https://github.com/mobile-dev-harness/mobile-preview-plugin/actions/runs/37652914657)
+passed for commit `9ec7afad96f486b8050f2f41e6ca8bade24c9b8c`. Its downloaded
+`0.1.0-preview.3` CI archive has SHA-256
+`d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`.
+This CI run-number version is distinct from the earlier local preview.3 matrix
+archive; identify them by checksum and source provenance, not version alone.
+
+The exact downloaded archive passed native capture/Home and SIGTERM cleanup on
+API 37 with 16 KiB pages. It installed into fresh stock Web `0.2.1-alpha.1` and
+official Desktop `0.2.0-rc.2` profiles; both enabled the plugin and discovered the
+device through its authenticated backend. Desktop removal cleared the dependency,
+bundle entry, package link and native host; after restart its plugin route returned
+404. Reinstallation restored the backend. An earlier local preview.3-to-preview.4
+CLI upgrade also passed. These are installation/backend checks, not visible
+first-frame or touch verification. Evidence is under
+`target/release-readiness/{remote-artifact,native-ci,desktop-ci,web-ci}`.
+
 Before selecting a first public preview, complete or explicitly narrow the stated
 qualification scope for these open checks:
 
@@ -42,8 +60,7 @@ qualification scope for these open checks:
 - Record the limits of physical-device coverage, rotation, hot unplug and sustained
   GUI sessions. The earlier API 36 nubia phone and source Desktop passes are
   historical evidence, not passes for every later archive or vendor.
-- Accept one remote workflow artifact built from the intended clean commit, then
-  verify the exact archive to be distributed as described below.
+- Complete GUI acceptance of the exact selected remote archive before publication.
 
 ## Build and identify the candidate
 

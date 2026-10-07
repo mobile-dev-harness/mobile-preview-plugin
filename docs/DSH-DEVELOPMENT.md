@@ -3,14 +3,168 @@
 The MPP adapter is a local external plugin for DSH Web and Desktop. Its JavaScript
 host/UI layer delegates Android discovery, capture and input to Rust. It implements
 a connection panel, H.264/WebCodecs preview, single-pointer interaction and basic
-Android keys. The live path currently accepts only **API 32/arm64-v8a Android on a
-Unix host**. Target-emulator native, Web and Desktop checks are recorded below;
-broader platform, long GUI-session and performance qualification remain outstanding.
+Android keys. The current candidate implements **API 29–37 arm64-v8a Android
+adapters on a Unix host**. The shared host/device policy selects the API 29–33
+SurfaceControl/InputManager path or API 34–37 DisplayManager/InputManagerGlobal
+path. Implementation eligibility is separate from runtime qualification; consult
+the [Android matrix](ANDROID-COMPATIBILITY.md). Historical target-emulator and
+API 36 phone evidence is retained below. Broader platform, long GUI-session and
+performance qualification remain outstanding.
 It provides no agent screenshot tools and requires no mdh installation.
 The adapter has no third-party Node dependencies and uses DSH's runtime-provided
 React/UI services. Lifecycle operations use an internal Rust stdio protocol;
 media and input use dedicated private sockets through authenticated DSH routes.
 The plugin registers no MCP or agent tools.
+
+## Build a self-contained preview package
+
+The local packaging path targets a macOS 14 or later Apple Silicon DSH Host with Android
+API 29–37 arm64 adapters. It does not require the sidebar-width patch. Installation
+from the resulting archive does not compile or download MPP native code.
+
+Build on macOS arm64 with Node/npm, Rust **1.88.0**, Android NDK **26.1.10909125**,
+the installed `aarch64-apple-darwin` and `aarch64-linux-android` Rust targets, and
+the JDK/Build Tools prerequisites in [Build the Android assets](#build-the-android-assets).
+Run from this repository:
+
+```sh
+RUSTUP_TOOLCHAIN=1.88 node scripts/package-preview.mjs --version 0.1.0-preview.4
+```
+
+The script builds the release host and release Android assets with locked Cargo
+dependencies into `target/preview-build`, stages only the plugin's runtime files,
+and runs `npm pack` with scripts disabled. It installs no toolchains. Cargo may
+fetch uncached dependencies; set `CARGO_NET_OFFLINE=true` when everything is cached.
+Installed toolchain selection uses the same environment overrides as the Android
+build. The Rust/NDK versions must match `licenses/third-party/manifest.json`; the
+packager rejects version drift rather than carrying notices for another toolchain.
+`MPP_BUILD_PROFILE=release` is selected by the packager itself.
+
+The command above creates:
+
+```text
+target/packages/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz
+target/packages/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz.sha256
+```
+
+Use `--output-dir PATH` to select a destination. `--version` is required and has no
+default. `0.1.0-preview.4` is only a development example, not a published or
+qualified release. Versions must use the source package version followed by
+`-preview.<number>`. Existing archive/checksum files are not overwritten; choose
+another preview version or output directory. The Rust host version must match
+the source plugin version. The staged package remains `private: true`.
+
+The archive contains the JavaScript adapter, package README, default DSH patch,
+Apache-2.0 `LICENSE`, `THIRD-PARTY-NOTICES.md` and `licenses/third-party/`, plus
+these native runtime files:
+
+```text
+native/darwin-arm64/mpp
+native/android-arm64/bootstrap.jar
+native/android-arm64/libmpp_android_device.so
+runtime-manifest.json
+```
+
+The runtime manifest records the source/package versions, source commit, dirty
+state and source-tree SHA-256 (`source.commit`, `source.dirty`, `source.treeSha256`),
+supported host/device target, release build profiles, pinned DSH baseline and
+SHA-256 hashes of the native files. Packaging rejects source changes during the
+build. It also checks `Cargo.lock` and each inventoried notice-file hash against
+the third-party license manifest. Refresh the inventory and notices when changing
+dependencies or toolchains. Its Android metadata uses `minApi: 29` and
+`supportedApis` from 29 through 37; this records adapter eligibility, not runtime
+test results. Assets now use the version-neutral `native/android-arm64` directory.
+The adjacent `.sha256` records the archive checksum. These are integrity records,
+not signatures. The package resolves its executable and assets relative
+to its own installation location; `MPP_EXECUTABLE` is not required. Explicit
+absolute `executable` and `deviceAssets` configuration remains available for
+development. A source checkout without bundled native files needs that explicit
+configuration, as supplied by `dev-dsh.mjs`.
+
+To install, use DSH **Plugins → Add plugin** with the archive's absolute path,
+then enable the plugin. For the Web CLI profile:
+
+```sh
+dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz
+```
+
+The runtime machine needs DSH, Android SDK platform-tools and an authorized API
+29–37 arm64 device; check the matrix for its current qualification status. Emulator
+use also requires the emulator package and an existing
+supported AVD. It does not need Rust, NDK or JDK. Web playback
+requires a supported H.264 WebCodecs browser. The source launcher and its Node/pnpm
+requirements below are a separate development workflow. Follow the
+[package README](../packages/dsh-plugin/README.md) to connect and remove the plugin.
+Stock DSH keeps manual sidebar sizing; the optional patch adds automatic width.
+
+Restart the DSH Host after installing a new native package version and before
+connecting a device. In particular, changing the installed native asset directory
+requires a restart: hot reload can retain the previous package-relative asset path.
+
+The earlier approximately 1.4 MiB `0.1.0-preview.1` archive passed clean installation on
+the official npm DSH `0.2.1-alpha.1` Web distribution in a fresh, isolated
+`DSH_HOME`. CLI installation used no `--patch`, executable/assets overrides or
+model API key. Web decoded an automatic first frame; dragging opened the app
+drawer, taps opened Settings → Apps, Back returned to Settings and Home reached
+the launcher. At a 1280×820 viewport, manually resizing the sidebar from 300 to
+430 pixels kept the preview live. Pause remained paused across collapse/reopen,
+and Resume returned to Live.
+
+CLI removal while connected removed the mobile entry and unloaded preview. No MPP
+host, Android bootstrap process or adb reverse mapping remained, and the clean
+profile no longer contained the plugin bundle or dependency. Local screenshot:
+`target/stock-validation/evidence/stock-web-live.png`. These checks qualify the
+packed Web path on the target emulator. The Desktop GUI evidence later in this
+guide is from a source build.
+
+The official Desktop `0.2.0-rc.2` app later passed signature and notarization
+checks. Its bundled CLI installed `0.1.0-preview.3` into an isolated profile;
+the bundle was enabled and its native files matched the archive manifest hashes.
+The profile used a separate webserver port to avoid a conflict with the existing
+app instance. This was a test configuration change, not a DSH source patch.
+Evidence is `target/release-readiness/desktop/evidence/install-preview3.json` and
+`target/release-readiness/desktop/install-preview3.log`. Official Desktop GUI
+preview/input/lifecycle acceptance remains pending because GUI control was
+unavailable during that check.
+
+The preview.1 packaging increment passed 143 plugin tests and 19 script tests,
+including package relocation and concurrent packaging. Rust formatting and Clippy
+passed; the real release host and Android assets built with Rust 1.88 and JDK 17.
+These are historical checks, distinct from the source-based runtime checks below.
+
+The earlier `0.1.0-preview.2` archive was installed into the official stock
+npm DSH Web `0.2.1-alpha.1` distribution on macOS arm64. On one nubia P0110 phone
+(Android 16/API 36, arm64), native capture produced configuration, key and delta
+packets, and the Web client decoded live video at 576×1280 from the 1264×2800
+display. Home returned a secondary launcher page to the main page; a canvas tap
+opened Display & Brightness, dragging scrolled the settings list, and Back returned
+to the settings main page. Pause left no helper process, and Resume returned to Live.
+
+After pausing, three independent native start/capture/stop cycles passed and left
+no helper, adb reverse mapping or active MPP virtual display. The same new host and
+native assets passed an API 32 emulator regression with configuration/key/delta
+packets and cleanup. Local screenshot: `target/android36/evidence/phone-live.png`.
+This evidence covers these two targets; it does not qualify other Android 16
+devices or vendors. Physical rotation, hot unplug and long GUI sessions were not
+newly tested. Official Desktop GUI acceptance remains pending.
+
+The API 36 change passed 94 Rust workspace tests, host and Android release Clippy
+under Rust 1.88, and seven package tests after the runtime-manifest update. It
+changes neither the Java bootstrap nor dependencies and performs no publication.
+
+The `.github/workflows/preview-package.yml` workflow runs on pushes that touch its
+listed packaging/runtime/license paths, or by manual dispatch with a required
+explicit preview version. Push builds use `<source-version>-preview.<GITHUB_RUN_NUMBER>`
+as a CI test-package version, not a selected public release version. It uses a
+macOS arm64 runner (`macos-15`), Rust 1.88, NDK 26.1.10909125, Android Build Tools
+35.0.0, the API 29 platform JAR, Node 24 and JDK 17. It checks the plugin/scripts,
+builds the archive, verifies `source.commit` equals the run's `GITHUB_SHA` and
+`source.dirty` is false, and uploads `.tgz`/`.sha256` files as GitHub Actions
+artifacts retained for 14 days. It has read-only repository contents permission
+and performs no npm publication or GitHub Release. Remote artifact acceptance
+remains pending. The source and staged package remain private; MPP uses Apache-2.0
+with bundled third-party notices. See [RELEASING.md](RELEASING.md) for the remaining
+acceptance and manual review steps.
 
 ## Compatibility baseline and prerequisites
 
@@ -39,11 +193,13 @@ merged upstream or published as an official DSH API.
 - An MPP executable built with `cargo build --workspace --locked` in this repository.
 - Android SDK platform-tools for discovery; emulator tools and an existing AVD for
   explicit startup. Device discovery does not start an emulator.
-- For live preview, the native library and bootstrap JAR described below, an API 32
-  arm64 emulator, and client WebCodecs support for the actual H.264 profile emitted
+- For live preview, the native library and bootstrap JAR described below, an
+  authorized API 29–37 arm64 device, and client WebCodecs support for the actual
+  H.264 profile emitted
   by its encoder. Unsupported browsers/codecs fail explicitly; there is no software
-  decoder or screenshot-loop fallback. Other APIs, x86 emulators, Windows hosts,
-  physical-device qualification and iOS remain outside the current live baseline.
+  decoder or screenshot-loop fallback. Other APIs, x86 emulators, Windows hosts and
+  iOS remain outside the current live backend. The implementation range is not a
+  compatibility claim across all devices or vendors; check the matrix.
 
 The launcher installs no Node, pnpm, SDK or Rust components. DSH's stock build and
 Desktop preparation scripts may download their own locked dependencies and prepare
@@ -94,7 +250,7 @@ not promise capture keeps running in the background.
 
 The patch is maintained in this repository at
 `integrations/deepseek-harness/patches/0001-sidebar-content-width.patch`.
-The 41,567-byte artifact passed an application check against the clean pinned
+The artifact passed an application check against the clean pinned
 commit and a reverse-application check against the modified local source tree.
 Stop source development runtimes/watchers before applying and rebuilding it. Use
 a dedicated DSH checkout whose `HEAD` is exactly
@@ -124,14 +280,19 @@ extension and MPP's client code must be loaded to exercise automatic sizing.
 ## Build the Android assets
 
 Use an installed Android NDK, Rust `aarch64-linux-android` target, JDK 17 or later,
-Android Build Tools with D8, and an Android platform JAR at API 32 or later:
+Android Build Tools with D8, and an Android platform JAR at API 29 or later:
 
 ```sh
 ./scripts/build-android-device.sh
 ```
 
+The default `MPP_BUILD_PROFILE` is `debug`; set it to `release` for release
+artifacts. The host/package build uses release; the standalone script accepts only
+`debug` or `release`. The `codec_probe` path below uses `release` instead of `debug`
+when that profile is selected. The bootstrap/library output directory is unchanged.
+
 The script builds with Rust's locked dependency graph, compiles the small Java
-entry with `--release 8`, and runs D8 with minimum API 32. It emits:
+entry with `--release 8`, and runs D8 with minimum API 29. It emits:
 
 ```text
 target/android-device/bootstrap.jar
@@ -143,7 +304,11 @@ Select installed toolchains with `ANDROID_NDK_HOME`, `JAVA_HOME` and, when neede
 `RUSTUP_TOOLCHAIN=1.88`. `MPP_BUILD_TOOLS` accepts an absolute build-tools version
 directory; `MPP_ANDROID_JAR` accepts an absolute platform JAR. No SDK/Rust/JDK
 installation is automatic. A newer compile platform does not widen the runtime
-gate: Rust explicitly requires API 32 because capture/input use hidden Android APIs.
+gate: both Rust ends use `android_framework(api)` for API 29–33 and 34–37 on arm64.
+The Java bootstrap remains unchanged. The build checks every ELF LOAD segment for
+at least 16 KiB alignment; all four segments in the inspected library passed. This
+artifact check is separate from the successful API 37 native matrix run on one
+emulator with an observed 16,384-byte page size.
 
 `CARGO_TARGET_DIR` relocates these outputs. For a relocated build, provide the
 absolute `android-device` directory through `MPP_DEVICE_ASSETS`. The launcher
@@ -151,6 +316,18 @@ otherwise configures the repository's `target/android-device` directory. Missing
 assets leave discovery available but preview unavailable. `codec_probe` tests only
 encoder initialization and intentionally reports `capture_verified: false`; use
 the bootstrap/library pair for actual screen capture.
+
+The opt-in native stream runner is documented in the
+[Android compatibility matrix](ANDROID-COMPATIBILITY.md#reproduce-native-smoke-checks).
+Use an exact authorized serial and put a non-launcher app such as Settings in the
+foreground before an input-enabled run; the Home check needs an actual transition.
+`--no-input` skips Home and cannot qualify input effects. Native matrix runs have
+passed on API 30–37; stock DSH Web first-frame and input checks passed on API 30–34.
+API 35–37 GUI remains unverified. The API 37 run also checked native operation on
+16 KiB pages. The API 29 environment remains blocked by the independently
+reproduced codec surface failure, including the final host-GPU/Vulkan-disabled
+control. That failed capture left no packets but cleaned up its owned resources;
+the matrix links the native and baseline evidence.
 
 ## Prepare and launch
 
@@ -199,7 +376,7 @@ these are host configuration, never browser-supplied file paths or codec argumen
 
 | Setting | Default | Allowed values |
 | --- | --- | --- |
-| `deviceAssets` | Unset outside the development launcher | Absolute asset directory |
+| `deviceAssets` | Bundled Android assets for a packed install; launcher-provided for source development | Absolute asset directory |
 | `videoMaxSize` | `1280` | Even integer, 256–2048; encoded dimensions are aligned by the backend |
 | `videoBitRate` | `4000000` | 100,000–20,000,000 bits/s |
 | `videoMaxFps` | `30` | 1–60 fps |
@@ -212,7 +389,7 @@ The development launcher writes paths but exposes no CLI flags for video tuning.
 ## Use the preview
 
 1. Open a DSH conversation and its mobile-device panel. Refresh inventory and choose
-   the exact API 32 arm64 emulator; explicitly start it if needed.
+   the exact authorized device in the implemented API/ABI range; explicitly start an AVD if needed.
 2. Choose **Connect**. A new binding enables preview automatically once its canvas
    is visible. `transport_ready` is only the connection state: video still requires
    backend/codec checks and a decoded first frame, with a ten-second frame deadline.
@@ -293,7 +470,7 @@ the stock DSH process output if it reports a shutdown failure.
 ```sh
 node --check scripts/dev-dsh.mjs
 npm --prefix packages/dsh-plugin run check
-node --test scripts/tests/build-android-device.test.mjs
+node --test scripts/tests/*.test.mjs
 ```
 
 The initial streaming qualification used a fully built, unmodified pinned DSH

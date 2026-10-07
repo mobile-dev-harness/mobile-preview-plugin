@@ -6,11 +6,17 @@ fail() {
   exit 2
 }
 
-[[ $# -eq 0 ]] || fail 'This script takes no arguments; configure CARGO, RUSTUP_TOOLCHAIN, ANDROID_NDK_HOME, ANDROID_HOME, JAVA_HOME, MPP_BUILD_TOOLS, or MPP_ANDROID_JAR instead.'
+[[ $# -eq 0 ]] || fail 'This script takes no arguments; configure CARGO, RUSTUP_TOOLCHAIN, ANDROID_NDK_HOME, ANDROID_HOME, JAVA_HOME, MPP_BUILD_TOOLS, MPP_ANDROID_JAR, or MPP_BUILD_PROFILE instead.'
+
+MHP_PROFILE="${MPP_BUILD_PROFILE:-debug}"
+case "$MHP_PROFILE" in
+  debug|release) ;;
+  *) fail 'MPP_BUILD_PROFILE must be debug or release.' ;;
+esac
 
 MHP_ROOT="$(cd -- "$(dirname "${BASH_SOURCE[0]}")/.." >/dev/null && pwd -P)"
 MHP_TARGET=aarch64-linux-android
-MHP_API=32
+MHP_API=29
 MHP_CARGO="${CARGO:-cargo}"
 MHP_RUSTC="${RUSTC:-rustc}"
 MHP_TARGET_DIR="${CARGO_TARGET_DIR:-$MHP_ROOT/target}"
@@ -54,7 +60,9 @@ fi
 [[ -d "$MHP_NDK" ]] || fail "Selected Android NDK path does not name a directory: $MHP_NDK"
 MHP_NDK="$(cd -- "$MHP_NDK" >/dev/null && pwd -P)"
 MHP_LINKER="$MHP_NDK/toolchains/llvm/prebuilt/$MHP_PREBUILT/bin/aarch64-linux-android$MHP_API-clang"
+MHP_READELF="$MHP_NDK/toolchains/llvm/prebuilt/$MHP_PREBUILT/bin/llvm-readelf"
 [[ -x "$MHP_LINKER" ]] || fail "NDK compiler is unavailable: $MHP_LINKER"
+[[ -x "$MHP_READELF" ]] || fail "NDK ELF inspector is unavailable: $MHP_READELF"
 "$MHP_LINKER" --version >/dev/null 2>&1 || fail "The NDK compiler cannot run on this host: $MHP_LINKER"
 
 MHP_LIBDIR="$(RUSTUP_AUTO_INSTALL=0 "$MHP_RUSTC" --print target-libdir --target "$MHP_TARGET")" || fail "Cannot inspect the selected Rust compiler; check RUSTC and RUSTUP_TOOLCHAIN."
@@ -120,7 +128,7 @@ if [[ -z "$MHP_ANDROID_JAR" ]]; then
     done | sort -n
   )
 fi
-[[ -n "$MHP_ANDROID_JAR" && "$MHP_ANDROID_JAR" = /* && -f "$MHP_ANDROID_JAR" && -r "$MHP_ANDROID_JAR" ]] || fail 'An installed Android platform android.jar (API 32 or later) is required. Set MPP_ANDROID_JAR to its absolute path; no SDK packages are installed automatically.'
+[[ -n "$MHP_ANDROID_JAR" && "$MHP_ANDROID_JAR" = /* && -f "$MHP_ANDROID_JAR" && -r "$MHP_ANDROID_JAR" ]] || fail 'An installed Android platform android.jar (API 29 or later) is required. Set MPP_ANDROID_JAR to its absolute path; no SDK packages are installed automatically.'
 
 MHP_ARGS=(
   build --locked
@@ -130,19 +138,44 @@ MHP_ARGS=(
   --target "$MHP_TARGET"
   --lib --example codec_probe
 )
-
-printf 'Building Android API %s for %s with NDK %s\n' "$MHP_API" "$MHP_TARGET" "$MHP_NDK" >&2
-RUSTUP_AUTO_INSTALL=0 CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$MHP_LINKER" \
-  "$MHP_CARGO" "${MHP_ARGS[@]}"
-
-MHP_LIBRARY="$MHP_TARGET_DIR/$MHP_TARGET/debug/libmpp_android_device.so"
-MHP_PROBE="$MHP_TARGET_DIR/$MHP_TARGET/debug/examples/codec_probe"
-[[ -f "$MHP_LIBRARY" ]] || fail "Cargo did not produce the expected shared library: $MHP_LIBRARY"
-[[ -f "$MHP_PROBE" ]] || fail "Cargo did not produce the expected codec probe: $MHP_PROBE"
+if [[ "$MHP_PROFILE" = release ]]; then
+  MHP_ARGS+=(--release)
+fi
 
 mkdir -p "$MHP_TARGET_DIR"
 MHP_STAGE="$(mktemp -d "$MHP_TARGET_DIR/.mpp-android-build.XXXXXX")"
 trap 'rm -rf -- "$MHP_STAGE"' EXIT
+# Scope alignment to the Android linker, preserving Cargo's caller/config flag precedence.
+# NDK r27 and earlier require both flags: developer.android.com/guide/practices/page-sizes.
+cat > "$MHP_STAGE/android-linker" <<'LINKER'
+#!/usr/bin/env bash
+set -euo pipefail
+exec "${MPP_ANDROID_LINKER:?}" "$@" -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
+LINKER
+chmod +x "$MHP_STAGE/android-linker"
+
+printf 'Building Android API %s for %s (%s) with NDK %s\n' "$MHP_API" "$MHP_TARGET" "$MHP_PROFILE" "$MHP_NDK" >&2
+RUSTUP_AUTO_INSTALL=0 MPP_ANDROID_LINKER="$MHP_LINKER" \
+  CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$MHP_STAGE/android-linker" \
+  "$MHP_CARGO" "${MHP_ARGS[@]}"
+
+MHP_LIBRARY="$MHP_TARGET_DIR/$MHP_TARGET/$MHP_PROFILE/libmpp_android_device.so"
+MHP_PROBE="$MHP_TARGET_DIR/$MHP_TARGET/$MHP_PROFILE/examples/codec_probe"
+[[ -f "$MHP_LIBRARY" ]] || fail "Cargo did not produce the expected shared library: $MHP_LIBRARY"
+[[ -f "$MHP_PROBE" ]] || fail "Cargo did not produce the expected codec probe: $MHP_PROBE"
+
+MHP_HEADERS="$("$MHP_READELF" -W -l "$MHP_LIBRARY")" || fail 'Cannot inspect the native library ELF load segments.'
+MHP_LOAD_COUNT=0
+while IFS= read -r MHP_LINE; do
+  read -r -a MHP_COLUMNS <<< "$MHP_LINE"
+  [[ "${MHP_COLUMNS[0]:-}" = LOAD ]] || continue
+  MHP_ALIGN="${MHP_COLUMNS[${#MHP_COLUMNS[@]}-1]}"
+  [[ "$MHP_ALIGN" =~ ^0x[0-9a-fA-F]{1,8}$ ]] || fail "Invalid ELF load alignment: $MHP_ALIGN"
+  [[ "$((MHP_ALIGN))" -ge 16384 ]] || fail "Native library LOAD alignment $MHP_ALIGN is below 16 KiB; check linker overrides. Existing assets were not replaced."
+  MHP_LOAD_COUNT=$((MHP_LOAD_COUNT + 1))
+done <<< "$MHP_HEADERS"
+[[ "$MHP_LOAD_COUNT" -gt 0 ]] || fail 'Native library has no ELF LOAD segments; existing assets were not replaced.'
+
 mkdir "$MHP_STAGE/classes"
 printf 'Compiling Java bootstrap with %s and %s (minimum API %s)\n' "$MHP_JAVAC_VERSION" "$MHP_ANDROID_JAR" "$MHP_API" >&2
 "$MHP_JAVAC" --release 8 -encoding UTF-8 -classpath "$MHP_ANDROID_JAR" \

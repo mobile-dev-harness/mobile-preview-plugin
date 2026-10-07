@@ -10,10 +10,12 @@ integration; device/session/media behavior belongs to Rust.
 The current development implementation includes Android discovery, explicit
 emulator startup, transport leases, display capture, H.264 transport and
 single-pointer/basic-key control in the DSH panel. Capture is deliberately gated
-to Android API 32 on arm64-v8a and a Unix host. These implementation boundaries
-are narrower than the long-term platform goal. Native/Web/Desktop checks below
-exercise the target emulator; broader platform and long GUI-session qualification
-remain outstanding.
+to Android API 29–37 on arm64-v8a and a Unix host, using two framework paths.
+This is an implemented eligibility range, not a completed runtime qualification
+matrix. The [Android compatibility record](ANDROID-COMPATIBILITY.md) separates
+current passes, environmental blockers and untested targets. Earlier API 32
+emulator and API 36 physical-device checks remain historical. Broader platform
+and long GUI-session qualification remain outstanding.
 A transport connection does not establish a decoded first frame or a successful
 application action.
 
@@ -37,7 +39,7 @@ Rust implementation, not scrcpy wire compatibility.
   process owns sessions and preview tasks, and releases them on EOF. Separate
   private Unix sockets carry video and input; these bypass the stdio lifecycle queue.
 - `mpp-android-device`: Rust/JNI display capture and input plus NDK H.264 encoding,
-  restricted to API 32 / arm64. It depends on core types, never the adb adapter.
+  restricted to API 29–37 / arm64. It depends on core types, never the adb adapter.
   Audited unsafe boundaries are limited to its codec, platform and native modules;
   the other crates continue to forbid unsafe code. `codec_probe` remains independent.
 - `android-bootstrap/dev/mpp/Bootstrap.java`: approved tiny `app_process` entry
@@ -204,11 +206,37 @@ successful emulator startup is not undone when a preview or host closes.
 
 ### Platform capture boundary
 
-Rust uses JNI to call Android's hidden SurfaceControl/InputManager paths and NDK
-MediaCodec for encoding. Host and native checks reject non-API-32 or non-arm64
-devices. This implementation does not establish compatibility with those hidden
-APIs on newer Android releases. iOS requires a separate backend; simctl is not
-assumed to provide arbitrary touch injection.
+Rust uses JNI for Android framework access and NDK MediaCodec for encoding. Host
+and native eligibility checks use the shared `android_framework(api)` policy and
+retain the arm64 requirement. APIs 29–33 select SurfaceControl/InputManager; APIs
+34–37 select DisplayManager/InputManagerGlobal; versions outside that range are
+rejected. Minimum NDK/DEX API 29 and adapter presence are not runtime-test passes.
+Discovery/probing has a wider scope than live capture and is not evidence of
+preview compatibility.
+
+APIs 29–33 use the `SurfaceControl` capture transaction and `InputManager` input
+path. APIs 34–37 call the hidden static
+`DisplayManager.createVirtualDisplay(String, int, int, int, Surface)` mirror
+overload to mirror display 0 into the encoder surface. Its capture owner retains
+the returned `VirtualDisplay` and calls `release()` before releasing the encoder
+surface; it does not fall back to legacy capture. Input uses
+`InputManagerGlobal.getInstance()` and `injectInputEvent(InputEvent, int)`. These
+signatures were checked against the tagged AOSP Android 16 sources:
+[DisplayManager](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-16.0.0_r1/core/java/android/hardware/display/DisplayManager.java),
+[VirtualDisplay](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-16.0.0_r1/core/java/android/hardware/display/VirtualDisplay.java),
+and [InputManagerGlobal](https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-16.0.0_r1/core/java/android/hardware/input/InputManagerGlobal.java).
+
+The Java bootstrap is unchanged; API-specific capture, input and cleanup stay in
+Rust. Hidden framework signatures and vendor behavior still require target-device
+qualification. iOS requires a separate backend; simctl is not assumed to provide
+arbitrary touch injection.
+
+The API 29 build links with 16 KiB maximum/common page-size alignment and inspects
+every ELF LOAD segment before replacing device assets. The checked library had
+four 16 KiB-aligned LOAD segments. Separately, the API 37 matrix target passed
+native capture/input/cleanup with an observed 16,384-byte page size; other 16 KiB
+targets remain unqualified. Packaged assets use `native/android-arm64`, and manifest
+`supportedApis` records adapter policy rather than completed matrix results.
 
 The native backend configures a surface-input AVC encoder, owns its codec/format/
 window resources and bounds encoded output to 8 MiB before copying it. Dequeued
@@ -246,14 +274,14 @@ never synthesizes input heartbeats or sequence numbers.
    and keeps diagnostics off stdout. Failed requests do not terminate the host.
 7. Media protocol tests cover partial/coalesced reads, packet limits, malformed
    headers and round trips. These tests are not video performance measurements.
-8. With an authorized API 32 arm64 emulator, validate decoded display changes and
+8. For each allowed API/arm64 target, validate decoded display changes and
    visible input effects. Complete rotation, backpressure, interrupted control,
    cleanup, ten reconnects and sustained-session checks before stability claims.
 
 ## Next increments
 
-Finish real-device verification of the implemented streaming/input path, then
-qualify USB Android devices and additional Android API/ABI combinations separately.
+Extend physical-device qualification to rotation, hot unplug and long GUI sessions,
+then qualify additional USB Android devices and Android API/ABI combinations separately.
 iOS discovery and capture/input
 are a separate backend, with compatibility evidence tied to Xcode/runtime versions.
 Upstream DSH inclusion is a later contribution, not a change to DSH in this increment.
@@ -356,8 +384,8 @@ multi-touch, audio and recording remain outside this increment.
 
 1. Test stream/configuration and input state machines: stale epochs,
    malformed framing, overload, edge preservation and uncertain acknowledgements.
-2. Prove real API 32 arm64 capture and decoded display
-   changes. Split encoder configure/surface/start/reset phases, handle output-format
+2. Prove real capture and decoded display for each allowed API/arm64 target.
+   Split encoder configure/surface/start/reset phases, handle output-format
    changes, and verify every error path releases acquired resources.
 3. Test the authenticated DSH video route and bounded decoder against slow readers,
    browser abort, plugin unload and reconnect while writes are blocked.
@@ -405,6 +433,30 @@ An earlier unexplained Web EOF did not recur during the native run or latest Web
 checks; its cause is unresolved. Long end-to-end GUI sessions, additional GUI
 restart/reconnect cycles and performance characterization are not established by
 these focused checks, which do not close every checklist item.
+
+### API 36 physical-device qualification
+
+The subsequent API 36 adapter passed native capture and GUI/input checks on one
+nubia P0110 physical phone (Android 16/API 36, arm64). The `0.1.0-preview.2` archive
+was installed into the official stock npm DSH Web `0.2.1-alpha.1` distribution on
+macOS arm64. It produced H.264 configuration, key and delta packets and the Web
+client decoded live 576×1280 video from the 1264×2800 display. Home returned to the
+main launcher page; tapping opened Display & Brightness; dragging scrolled the
+settings list; Back returned to the settings main page. Pause left no helper, and
+Resume restored Live.
+
+Three separate native start/capture/stop cycles after pausing left no helper,
+adb reverse mapping or active MPP virtual display. With the same new host and
+native assets, the API 32 emulator still produced configuration/key/delta packets
+and cleaned up. The local phone screenshot is
+`target/android36/evidence/phone-live.png`. Rust workspace tests (94), host and
+Android release Clippy under Rust 1.88, and the package tests (7) passed.
+
+These checks qualify the two tested targets, not every Android 16 device, vendor
+or unsupported intermediate API level. Physical rotation, hot unplug and long GUI
+sessions were not newly tested. Stock Desktop installation remains untested; older
+Desktop evidence above uses a source build. No bootstrap change, dependency or
+public release was introduced.
 
 [scrcpy-capture]: https://github.com/Genymobile/scrcpy/blob/2926c06c5dc3064ae6d8db706f1a98a37cfcf3f0/server/src/main/java/com/genymobile/scrcpy/video/ScreenCapture.java
 [scrcpy-encoder]: https://github.com/Genymobile/scrcpy/blob/2926c06c5dc3064ae6d8db706f1a98a37cfcf3f0/server/src/main/java/com/genymobile/scrcpy/video/SurfaceEncoder.java

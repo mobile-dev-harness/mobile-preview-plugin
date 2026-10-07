@@ -8,7 +8,10 @@ use std::{
 
 use mpp_core::{
     Device, DeviceState, Error, Platform, Result,
-    stream::{Channel, DEVICE_PROTOCOL, DeviceConfig, DeviceHello, Geometry, MAX_CONTROL_BYTES},
+    stream::{
+        Channel, DEVICE_PROTOCOL, DeviceConfig, DeviceHello, Geometry, MAX_CONTROL_BYTES,
+        android_framework,
+    },
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -222,9 +225,17 @@ impl Android {
         )
         .await?;
         check_cancelled(&mut cancelled)?;
-        if sdk.trim() != "32" || abi.trim() != "arm64-v8a" {
+        if sdk
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .and_then(android_framework)
+            .is_none()
+            || abi.trim() != "arm64-v8a"
+        {
             return Err(Error::Unsupported {
-                feature: "Live Android preview currently requires API 32 and arm64-v8a".into(),
+                feature: "Live Android preview requires Android 10–17 (API 29–37) and arm64-v8a"
+                    .into(),
             });
         }
 

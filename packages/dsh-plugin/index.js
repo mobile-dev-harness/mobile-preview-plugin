@@ -1,6 +1,7 @@
 import { isAbsolute } from 'node:path';
 import { createBridge } from './src/host/bridge.mjs';
 import { ConnectionService } from './src/host/service.mjs';
+import { resolveRuntime } from './src/host/runtime.mjs';
 
 export const name = 'mobile-preview';
 export const inject = ['connection', 'sessionQuery'];
@@ -21,7 +22,7 @@ export function resolveConfig(input = {}) {
   }
   for (const key of ['executable', 'adb', 'emulator', 'deviceAssets']) {
     const value = input[key];
-    if (value === undefined && key !== 'executable') continue;
+    if (value === undefined) continue;
     if (typeof value !== 'string' || !isAbsolute(value) || value.includes('\0')) {
       throw new Error(`mobile-preview ${key} must be an absolute path`);
     }
@@ -47,7 +48,7 @@ export function resolveConfig(input = {}) {
     throw new Error('mobile-preview leaseTtlMs must cover at least three heartbeats');
   }
   if (result.videoMaxSize % 2 !== 0) throw new Error('mobile-preview videoMaxSize must be even');
-  return result;
+  return { ...result, ...resolveRuntime(result) };
 }
 
 /** Observe metadata without activating an agent or computing its projections. */

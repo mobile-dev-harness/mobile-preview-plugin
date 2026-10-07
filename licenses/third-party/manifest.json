@@ -1,0 +1,1021 @@
+{
+  "schemaVersion": 1,
+  "cargoLockSha256": "2ea8d888748d0d705664f5354e13dcc751f280988878e4dffb451380ac77de25",
+  "targets": {
+    "aarch64-apple-darwin": {
+      "runtime": [
+        "bytes@1.12.1",
+        "errno@0.3.14",
+        "itoa@1.0.18",
+        "libc@0.2.190",
+        "memchr@2.8.3",
+        "mio@1.2.4",
+        "pin-project-lite@0.2.17",
+        "serde@1.0.229",
+        "serde_core@1.0.229",
+        "serde_json@1.0.151",
+        "signal-hook-registry@1.4.8",
+        "socket2@0.6.5",
+        "thiserror@2.0.21",
+        "tokio@1.53.2",
+        "zmij@1.0.23"
+      ],
+      "build": [
+        "proc-macro2@1.0.107",
+        "quote@1.0.47",
+        "serde_derive@1.0.229",
+        "syn@3.0.6",
+        "thiserror-impl@2.0.21",
+        "tokio-macros@2.7.2",
+        "unicode-ident@1.0.26"
+      ]
+    },
+    "aarch64-linux-android": {
+      "runtime": [
+        "bytes@1.12.1",
+        "cfg-if@1.0.5",
+        "combine@4.6.8",
+        "itoa@1.0.18",
+        "jni-sys@0.4.1",
+        "jni@0.22.4",
+        "log@0.4.34",
+        "memchr@2.8.3",
+        "serde@1.0.229",
+        "serde_core@1.0.229",
+        "serde_json@1.0.151",
+        "simd_cesu8@1.2.0",
+        "simdutf8@0.1.5",
+        "thiserror@2.0.21",
+        "zmij@1.0.23"
+      ],
+      "build": [
+        "jni-macros@0.22.4",
+        "jni-sys-macros@0.4.1",
+        "proc-macro2@1.0.107",
+        "quote@1.0.47",
+        "rustc_version@0.4.1",
+        "same-file@1.0.6",
+        "semver@1.0.28",
+        "serde_derive@1.0.229",
+        "simd_cesu8@1.2.0",
+        "simdutf8@0.1.5",
+        "syn@2.0.119",
+        "syn@3.0.6",
+        "thiserror-impl@2.0.21",
+        "unicode-ident@1.0.26",
+        "walkdir@2.5.0"
+      ]
+    }
+  },
+  "crates": [
+    {
+      "name": "bytes",
+      "version": "1.12.1",
+      "licenseExpression": "MIT",
+      "repository": "https://github.com/tokio-rs/bytes",
+      "crateChecksum": "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/bytes-1.12.1/LICENSE",
+          "source": "https://static.crates.io/crates/bytes/bytes-1.12.1.crate#LICENSE",
+          "sha256": "45f522cacecb1023856e46df79ca625dfc550c94910078bd8aec6e02880b3d42"
+        }
+      ]
+    },
+    {
+      "name": "cfg-if",
+      "version": "1.0.5",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/cfg-if",
+      "crateChecksum": "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/cfg-if-1.0.5/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/cfg-if/cfg-if-1.0.5.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/cfg-if-1.0.5/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/cfg-if/cfg-if-1.0.5.crate#LICENSE-MIT",
+          "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+        }
+      ]
+    },
+    {
+      "name": "combine",
+      "version": "4.6.8",
+      "licenseExpression": "MIT",
+      "repository": "https://github.com/Marwes/combine",
+      "crateChecksum": "cfc320937d09e6de266b31b9afb480f197d7a861be86be7cb2ea7e5d1bfffc5e",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/combine-4.6.8/LICENSE",
+          "source": "https://static.crates.io/crates/combine/combine-4.6.8.crate#LICENSE",
+          "sha256": "9bbc1b3dc4674a9ebb12c2a62f54fe3c08672539717f8d05828f684b6cc419a3"
+        }
+      ]
+    },
+    {
+      "name": "errno",
+      "version": "0.3.14",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/lambda-fairy/rust-errno",
+      "crateChecksum": "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/errno-0.3.14/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/errno/errno-0.3.14.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/errno-0.3.14/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/errno/errno-0.3.14.crate#LICENSE-MIT",
+          "sha256": "8764a597675778ddfd4e25f81b08a05dbcf089ac05662df7613fe67f150e3aa2"
+        }
+      ]
+    },
+    {
+      "name": "itoa",
+      "version": "1.0.18",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/itoa",
+      "crateChecksum": "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/itoa-1.0.18/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/itoa/itoa-1.0.18.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/itoa-1.0.18/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/itoa/itoa-1.0.18.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "jni",
+      "version": "0.22.4",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/jni-rs/jni-rs",
+      "crateChecksum": "5efd9a482cf3a427f00d6b35f14332adc7902ce91efb778580e180ff90fa3498",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [
+        "mpp-android-device"
+      ],
+      "licenseFiles": [
+        {
+          "path": "crates/jni-0.22.4/LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/jni-rs/jni-rs/5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/jni-0.22.4/LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/jni-rs/jni-rs/5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7/LICENSE-MIT",
+          "sha256": "fea1d5bf3dd71605ce5d7d2ff695c1837e914c77195e523a86b5391716477960"
+        }
+      ],
+      "licenseSourceCommit": "5ae9458a4ec44c5318f37ddc7569c1d4ae8a69e7",
+      "upstreamLicensePaths": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "jni-macros",
+      "version": "0.22.4",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/jni-rs/jni-rs",
+      "crateChecksum": "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/jni-macros-0.22.4/LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/jni-rs/jni-rs/33045a124105c939d1e2cbdcb5a39e5d868ffa03/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/jni-macros-0.22.4/LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/jni-rs/jni-rs/33045a124105c939d1e2cbdcb5a39e5d868ffa03/LICENSE-MIT",
+          "sha256": "fea1d5bf3dd71605ce5d7d2ff695c1837e914c77195e523a86b5391716477960"
+        }
+      ],
+      "licenseSourceCommit": "33045a124105c939d1e2cbdcb5a39e5d868ffa03",
+      "upstreamLicensePaths": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "jni-sys",
+      "version": "0.4.1",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/jni-rs/jni-sys",
+      "crateChecksum": "c6377a88cb3910bee9b0fa88d4f42e1d2da8e79915598f65fb0c7ee14c878af2",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/jni-sys-0.4.1/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/jni-sys/jni-sys-0.4.1.crate#LICENSE-APACHE",
+          "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+        },
+        {
+          "path": "crates/jni-sys-0.4.1/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/jni-sys/jni-sys-0.4.1.crate#LICENSE-MIT",
+          "sha256": "1d85bd754b04ceec93e98e890edd1fa3c6a22e81bcb32135806beeccefa51cd1"
+        }
+      ]
+    },
+    {
+      "name": "jni-sys-macros",
+      "version": "0.4.1",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/jni-rs/jni-sys",
+      "crateChecksum": "38c0b942f458fe50cdac086d2f946512305e5631e720728f2a61aabcd47a6264",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/jni-sys-macros-0.4.1/LICENSE-APACHE",
+          "source": "https://raw.githubusercontent.com/jni-rs/jni-sys/64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-APACHE",
+          "sha256": "c6596eb7be8581c18be736c846fb9173b69eccf6ef94c5135893ec56bd92ba08"
+        },
+        {
+          "path": "crates/jni-sys-macros-0.4.1/LICENSE-MIT",
+          "source": "https://raw.githubusercontent.com/jni-rs/jni-sys/64d77b7a5f119d7b55b4e2c169a4668067ff59e6/LICENSE-MIT",
+          "sha256": "1d85bd754b04ceec93e98e890edd1fa3c6a22e81bcb32135806beeccefa51cd1"
+        }
+      ],
+      "licenseSourceCommit": "64d77b7a5f119d7b55b4e2c169a4668067ff59e6",
+      "upstreamLicensePaths": [
+        "LICENSE-APACHE",
+        "LICENSE-MIT"
+      ]
+    },
+    {
+      "name": "libc",
+      "version": "0.2.190",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/libc",
+      "crateChecksum": "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/libc-0.2.190/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/libc/libc-0.2.190.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/libc-0.2.190/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/libc/libc-0.2.190.crate#LICENSE-MIT",
+          "sha256": "123a331b5dbf04c30097fa43b8f858bc85df671fe776de498d01f3d6b7c1f69e"
+        }
+      ]
+    },
+    {
+      "name": "log",
+      "version": "0.4.34",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/log",
+      "crateChecksum": "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/log-0.4.34/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/log/log-0.4.34.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/log-0.4.34/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/log/log-0.4.34.crate#LICENSE-MIT",
+          "sha256": "6485b8ed310d3f0340bf1ad1f47645069ce4069dcc6bb46c7d5c6faf41de1fdb"
+        }
+      ]
+    },
+    {
+      "name": "memchr",
+      "version": "2.8.3",
+      "licenseExpression": "Unlicense OR MIT",
+      "repository": "https://github.com/BurntSushi/memchr",
+      "crateChecksum": "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/memchr-2.8.3/COPYING",
+          "source": "https://static.crates.io/crates/memchr/memchr-2.8.3.crate#COPYING",
+          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f"
+        },
+        {
+          "path": "crates/memchr-2.8.3/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/memchr/memchr-2.8.3.crate#LICENSE-MIT",
+          "sha256": "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f"
+        },
+        {
+          "path": "crates/memchr-2.8.3/UNLICENSE",
+          "source": "https://static.crates.io/crates/memchr/memchr-2.8.3.crate#UNLICENSE",
+          "sha256": "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+        }
+      ]
+    },
+    {
+      "name": "mio",
+      "version": "1.2.4",
+      "licenseExpression": "MIT",
+      "repository": "https://github.com/tokio-rs/mio",
+      "crateChecksum": "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/mio-1.2.4/LICENSE",
+          "source": "https://static.crates.io/crates/mio/mio-1.2.4.crate#LICENSE",
+          "sha256": "07919255c7e04793d8ea760d6c2ce32d19f9ff02bdbdde3ce90b1e1880929a9b"
+        }
+      ]
+    },
+    {
+      "name": "pin-project-lite",
+      "version": "0.2.17",
+      "licenseExpression": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/taiki-e/pin-project-lite",
+      "crateChecksum": "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/pin-project-lite-0.2.17/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/pin-project-lite/pin-project-lite-0.2.17.crate#LICENSE-APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        },
+        {
+          "path": "crates/pin-project-lite-0.2.17/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/pin-project-lite/pin-project-lite-0.2.17.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "proc-macro2",
+      "version": "1.0.107",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/proc-macro2",
+      "crateChecksum": "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/proc-macro2-1.0.107/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/proc-macro2/proc-macro2-1.0.107.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/proc-macro2-1.0.107/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/proc-macro2/proc-macro2-1.0.107.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "quote",
+      "version": "1.0.47",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/quote",
+      "crateChecksum": "1fbf4db142a473a8d80c26bbf18454ed458bf8d26c8219c331daecfdbd079001",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/quote-1.0.47/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/quote/quote-1.0.47.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/quote-1.0.47/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/quote/quote-1.0.47.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "rustc_version",
+      "version": "0.4.1",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/djc/rustc-version-rs",
+      "crateChecksum": "cfcb3a22ef46e85b45de6ee7e79d063319ebb6594faafcf1c225ea92ab6e9b92",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/rustc_version-0.4.1/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/rustc_version/rustc_version-0.4.1.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/rustc_version-0.4.1/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/rustc_version/rustc_version-0.4.1.crate#LICENSE-MIT",
+          "sha256": "c9a75f18b9ab2927829a208fc6aa2cf4e63b8420887ba29cdb265d6619ae82d5"
+        }
+      ]
+    },
+    {
+      "name": "same-file",
+      "version": "1.0.6",
+      "licenseExpression": "Unlicense/MIT",
+      "repository": "https://github.com/BurntSushi/same-file",
+      "crateChecksum": "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/same-file-1.0.6/COPYING",
+          "source": "https://static.crates.io/crates/same-file/same-file-1.0.6.crate#COPYING",
+          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f"
+        },
+        {
+          "path": "crates/same-file-1.0.6/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/same-file/same-file-1.0.6.crate#LICENSE-MIT",
+          "sha256": "cb3c929a05e6cbc9de9ab06a4c57eeb60ca8c724bef6c138c87d3a577e27aa14"
+        },
+        {
+          "path": "crates/same-file-1.0.6/UNLICENSE",
+          "source": "https://static.crates.io/crates/same-file/same-file-1.0.6.crate#UNLICENSE",
+          "sha256": "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+        }
+      ]
+    },
+    {
+      "name": "semver",
+      "version": "1.0.28",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/semver",
+      "crateChecksum": "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/semver-1.0.28/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/semver/semver-1.0.28.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/semver-1.0.28/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/semver/semver-1.0.28.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "serde",
+      "version": "1.0.229",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/serde-rs/serde",
+      "crateChecksum": "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [
+        "mpp-android-device",
+        "mpp-core",
+        "mpp-host"
+      ],
+      "licenseFiles": [
+        {
+          "path": "crates/serde-1.0.229/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/serde/serde-1.0.229.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/serde-1.0.229/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/serde/serde-1.0.229.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "serde_core",
+      "version": "1.0.229",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/serde-rs/serde",
+      "crateChecksum": "67dca2c9c51e58a4791a4b1ed58308b39c64224d349a935ab5039aa360942a48",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/serde_core-1.0.229/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/serde_core/serde_core-1.0.229.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/serde_core-1.0.229/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/serde_core/serde_core-1.0.229.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "serde_derive",
+      "version": "1.0.229",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/serde-rs/serde",
+      "crateChecksum": "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/serde_derive-1.0.229/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/serde_derive/serde_derive-1.0.229.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/serde_derive-1.0.229/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/serde_derive/serde_derive-1.0.229.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "serde_json",
+      "version": "1.0.151",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/serde-rs/json",
+      "crateChecksum": "c841b55ecdae098c80dcae9cf767f6f8a0c2cdb3416bbef72181df4d0fe73f14",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [
+        "mpp-android",
+        "mpp-android-device",
+        "mpp-host"
+      ],
+      "licenseFiles": [
+        {
+          "path": "crates/serde_json-1.0.151/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/serde_json/serde_json-1.0.151.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/serde_json-1.0.151/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/serde_json/serde_json-1.0.151.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "signal-hook-registry",
+      "version": "1.4.8",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/vorner/signal-hook",
+      "crateChecksum": "c4db69cba1110affc0e9f7bcd48bbf87b3f4fc7c61fc9155afd4c469eb3d6c1b",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/signal-hook-registry-1.4.8/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/signal-hook-registry/signal-hook-registry-1.4.8.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/signal-hook-registry-1.4.8/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/signal-hook-registry/signal-hook-registry-1.4.8.crate#LICENSE-MIT",
+          "sha256": "503558bfefe66ca15e4e3f7955b3cb0ec87fd52f29bf24b336af7bd00e946d5c"
+        }
+      ]
+    },
+    {
+      "name": "simd_cesu8",
+      "version": "1.2.0",
+      "licenseExpression": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/seancroach/simd_cesu8",
+      "crateChecksum": "11031e251abf8611c80f460e19dbdeb54a66db918e49c65a7065b46ac7aec520",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/simd_cesu8-1.2.0/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/simd_cesu8/simd_cesu8-1.2.0.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/simd_cesu8-1.2.0/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/simd_cesu8/simd_cesu8-1.2.0.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "simdutf8",
+      "version": "0.1.5",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rusticstuff/simdutf8",
+      "crateChecksum": "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e",
+      "runtimeTargets": [
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/simdutf8-0.1.5/LICENSE-Apache",
+          "source": "https://static.crates.io/crates/simdutf8/simdutf8-0.1.5.crate#LICENSE-Apache",
+          "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9"
+        },
+        {
+          "path": "crates/simdutf8-0.1.5/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/simdutf8/simdutf8-0.1.5.crate#LICENSE-MIT",
+          "sha256": "1847e0e0698142ed4347c1441a9fa81c8fbddd44b1d8bbcd5e3647f991759d7f"
+        }
+      ]
+    },
+    {
+      "name": "socket2",
+      "version": "0.6.5",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/rust-lang/socket2",
+      "crateChecksum": "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/socket2-0.6.5/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/socket2/socket2-0.6.5.crate#LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "path": "crates/socket2-0.6.5/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/socket2/socket2-0.6.5.crate#LICENSE-MIT",
+          "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
+        }
+      ]
+    },
+    {
+      "name": "syn",
+      "version": "2.0.119",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/syn",
+      "crateChecksum": "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/syn-2.0.119/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/syn/syn-2.0.119.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/syn-2.0.119/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/syn/syn-2.0.119.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "syn",
+      "version": "3.0.6",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/syn",
+      "crateChecksum": "8593e8e72159ed2257d083c7a454a85cbf854f37a0966d8d483aff8c8a3ebcee",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/syn-3.0.6/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/syn/syn-3.0.6.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/syn-3.0.6/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/syn/syn-3.0.6.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "thiserror",
+      "version": "2.0.21",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/thiserror",
+      "crateChecksum": "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [
+        "mpp-core"
+      ],
+      "licenseFiles": [
+        {
+          "path": "crates/thiserror-2.0.21/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/thiserror/thiserror-2.0.21.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/thiserror-2.0.21/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/thiserror/thiserror-2.0.21.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "thiserror-impl",
+      "version": "2.0.21",
+      "licenseExpression": "MIT OR Apache-2.0",
+      "repository": "https://github.com/dtolnay/thiserror",
+      "crateChecksum": "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/thiserror-impl-2.0.21/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/thiserror-impl/thiserror-impl-2.0.21.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/thiserror-impl-2.0.21/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/thiserror-impl/thiserror-impl-2.0.21.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    },
+    {
+      "name": "tokio",
+      "version": "1.53.2",
+      "licenseExpression": "MIT",
+      "repository": "https://github.com/tokio-rs/tokio",
+      "crateChecksum": "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044",
+      "runtimeTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [
+        "mpp-android",
+        "mpp-host"
+      ],
+      "licenseFiles": [
+        {
+          "path": "crates/tokio-1.53.2/LICENSE",
+          "source": "https://static.crates.io/crates/tokio/tokio-1.53.2.crate#LICENSE",
+          "sha256": "253cd04c6714889df2d32f3f64d669179a1c95c76ac43c40882c52eb06bc3552"
+        }
+      ]
+    },
+    {
+      "name": "tokio-macros",
+      "version": "2.7.2",
+      "licenseExpression": "MIT",
+      "repository": "https://github.com/tokio-rs/tokio",
+      "crateChecksum": "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/tokio-macros-2.7.2/LICENSE",
+          "source": "https://static.crates.io/crates/tokio-macros/tokio-macros-2.7.2.crate#LICENSE",
+          "sha256": "0b83dc40cba89b9922bb84b0a9c7d2768ce37c1d7e138b7424fd4549915778c9"
+        }
+      ]
+    },
+    {
+      "name": "unicode-ident",
+      "version": "1.0.26",
+      "licenseExpression": "(MIT OR Apache-2.0) AND Unicode-3.0",
+      "repository": "https://github.com/dtolnay/unicode-ident",
+      "crateChecksum": "d245f478577f809a851594d02313b640fb437e0bb33866753cff937863096954",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/unicode-ident-1.0.26/LICENSE-APACHE",
+          "source": "https://static.crates.io/crates/unicode-ident/unicode-ident-1.0.26.crate#LICENSE-APACHE",
+          "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+        },
+        {
+          "path": "crates/unicode-ident-1.0.26/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/unicode-ident/unicode-ident-1.0.26.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        },
+        {
+          "path": "crates/unicode-ident-1.0.26/LICENSE-UNICODE",
+          "source": "https://static.crates.io/crates/unicode-ident/unicode-ident-1.0.26.crate#LICENSE-UNICODE",
+          "sha256": "f7db81051789b729fea528a63ec4c938fdcb93d9d61d97dc8cc2e9df6d47f2a1"
+        }
+      ]
+    },
+    {
+      "name": "walkdir",
+      "version": "2.5.0",
+      "licenseExpression": "Unlicense/MIT",
+      "repository": "https://github.com/BurntSushi/walkdir",
+      "crateChecksum": "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b",
+      "runtimeTargets": [],
+      "buildTargets": [
+        "aarch64-linux-android"
+      ],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/walkdir-2.5.0/COPYING",
+          "source": "https://static.crates.io/crates/walkdir/walkdir-2.5.0.crate#COPYING",
+          "sha256": "01c266bced4a434da0051174d6bee16a4c82cf634e2679b6155d40d75012390f"
+        },
+        {
+          "path": "crates/walkdir-2.5.0/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/walkdir/walkdir-2.5.0.crate#LICENSE-MIT",
+          "sha256": "0f96a83840e146e43c0ec96a22ec1f392e0680e6c1226e6f3ba87e0740af850f"
+        },
+        {
+          "path": "crates/walkdir-2.5.0/UNLICENSE",
+          "source": "https://static.crates.io/crates/walkdir/walkdir-2.5.0.crate#UNLICENSE",
+          "sha256": "7e12e5df4bae12cb21581ba157ced20e1986a0508dd10d0e8a4ab9a4cf94e85c"
+        }
+      ]
+    },
+    {
+      "name": "zmij",
+      "version": "1.0.23",
+      "licenseExpression": "MIT",
+      "repository": "https://github.com/dtolnay/zmij",
+      "crateChecksum": "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b",
+      "runtimeTargets": [
+        "aarch64-apple-darwin",
+        "aarch64-linux-android"
+      ],
+      "buildTargets": [],
+      "directDependenciesOf": [],
+      "licenseFiles": [
+        {
+          "path": "crates/zmij-1.0.23/LICENSE-MIT",
+          "source": "https://static.crates.io/crates/zmij/zmij-1.0.23.crate#LICENSE-MIT",
+          "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
+        }
+      ]
+    }
+  ],
+  "rustStandardLibrary": {
+    "version": "1.88.0",
+    "files": [
+      {
+        "path": "rust-1.88.0/LICENSE-APACHE",
+        "source": "https://raw.githubusercontent.com/rust-lang/rust/1.88.0/LICENSE-APACHE",
+        "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a"
+      },
+      {
+        "path": "rust-1.88.0/LICENSE-MIT",
+        "source": "https://raw.githubusercontent.com/rust-lang/rust/1.88.0/LICENSE-MIT",
+        "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1"
+      },
+      {
+        "path": "rust-1.88.0/COPYRIGHT",
+        "source": "https://raw.githubusercontent.com/rust-lang/rust/1.88.0/COPYRIGHT",
+        "sha256": "172020dbfd5b53a226dfde77616190a48dcff519b0bc0e6deb91a8450782c4af"
+      },
+      {
+        "path": "rust-1.88.0/COPYRIGHT-library.html",
+        "source": "https://static.rust-lang.org/dist/rust-docs-1.88.0-aarch64-apple-darwin.tar.xz#share/doc/rust/COPYRIGHT-library.html",
+        "sha256": "3d3f60160f5214efa0a7fd804102d02ce9ea6af04b5249a19eeb243450246ae9"
+      }
+    ]
+  },
+  "androidNdkRuntimeNotices": {
+    "version": "26.1.10909125",
+    "files": [
+      {
+        "path": "android-ndk-26.1.10909125/NOTICE",
+        "source": "https://dl.google.com/android/repository/android-ndk-r26b-darwin.zip#android-ndk-r26b/NOTICE",
+        "sha256": "8ef75b1329afc86cc26b44fd38a4ece8c78266581a32c5e57d6e7b11721183e1"
+      },
+      {
+        "path": "android-ndk-26.1.10909125/LLVM-NOTICE",
+        "source": "https://dl.google.com/android/repository/android-ndk-r26b-darwin.zip#android-ndk-r26b/toolchains/llvm/prebuilt/darwin-x86_64/NOTICE",
+        "sha256": "f96f763beb66a7ba7a667647fc64c0226ace875e590c831fdd9579ec1c1d91e1"
+      }
+    ]
+  },
+  "devDependencyEdges": [
+    [
+      "mpp-core",
+      "serde_json",
+      "1.0.151"
+    ]
+  ]
+}

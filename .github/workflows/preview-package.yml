@@ -1,0 +1,104 @@
+name: Build preview package
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/preview-package.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'crates/**'
+      - 'android-bootstrap/**'
+      - 'packages/dsh-plugin/**'
+      - 'scripts/package-preview.mjs'
+      - 'scripts/build-android-device.sh'
+      - 'scripts/tests/**'
+      - 'LICENSE'
+      - 'THIRD-PARTY-NOTICES.md'
+      - 'licenses/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Explicit preview version matching the source version (for example 0.1.0-preview.4)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    # GitHub's standard macos-15 image is arm64; fail early if that contract changes.
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: '1.88'
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
+      ANDROID_HOME: ${{ runner.temp }}/mpp-android-sdk
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/mpp-android-sdk
+      ANDROID_NDK_HOME: ${{ runner.temp }}/mpp-android-sdk/ndk/26.1.10909125
+      MPP_BUILD_TOOLS: ${{ runner.temp }}/mpp-android-sdk/build-tools/35.0.0
+      MPP_ANDROID_JAR: ${{ runner.temp }}/mpp-android-sdk/platforms/android-29/android.jar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify Apple Silicon runner
+        run: |
+          test "$(uname -s)" = Darwin
+          test "$(uname -m)" = arm64
+          node -e 'if (process.platform !== "darwin" || process.arch !== "arm64") process.exit(1)'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install pinned Android build tools
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          cmdline-tools-version: '12266719'
+          packages: 'ndk;26.1.10909125 build-tools;35.0.0 platforms;android-29'
+          accept-android-sdk-licenses: true
+      - name: Verify Android build tools
+        run: |
+          sdkmanager --version
+          "$JAVA_HOME/bin/javac" -version
+          "$MPP_BUILD_TOOLS/d8" --version
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android29-clang" --version
+          "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-readelf" --version
+          test -s "$MPP_ANDROID_JAR"
+      - uses: dtolnay/rust-toolchain@1.88
+        with:
+          targets: aarch64-apple-darwin,aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target/preview-build'
+      - run: npm run check --prefix packages/dsh-plugin
+      - run: node --test scripts/tests/*.test.mjs
+      - name: Build self-contained preview
+        env:
+          MPP_PREVIEW_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            MPP_PREVIEW_VERSION="$(node -p 'require("./packages/dsh-plugin/package.json").version + "-preview." + process.env.GITHUB_RUN_NUMBER')"
+          fi
+          node scripts/package-preview.mjs --version "$MPP_PREVIEW_VERSION"
+      - name: Verify package source provenance
+        run: |
+          tar -xOf target/packages/*.tgz package/runtime-manifest.json > "$RUNNER_TEMP/runtime-manifest.json"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const manifest = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/runtime-manifest.json`));
+            if (manifest.source.commit !== process.env.GITHUB_SHA || manifest.source.dirty !== false) {
+              throw new Error("CI package must come from the clean checked-out commit");
+            }
+            console.log(JSON.stringify(manifest, null, 2));
+          '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mpp-darwin-arm64-preview
+          path: |
+            target/packages/*.tgz
+            target/packages/*.sha256
+          if-no-files-found: error
+          retention-days: 14

@@ -10,10 +10,16 @@ mobile-dev-harness (mdh).
 **Current status: development preview with an Android video/control implementation.**
 The Rust backend and local DSH plugin provide device discovery, explicit emulator
 startup, session ownership, H.264 streaming and single-pointer/basic-key input.
-Live capture is currently restricted to **Android API 32 on arm64-v8a**, using a
-Unix host and a WebCodecs-capable client. Native, Web and Desktop checks on the
-target emulator are described below; they do not establish broad device
-compatibility or performance.
+The current candidate implements **Android 10–17 / API 29–37 arm64-v8a adapters**,
+using a Unix host and a WebCodecs-capable client. Runtime qualification is still in
+progress; eligibility is not a compatibility pass. Native capture/input/cleanup
+has passed on the API 30–37 matrix targets, including an API 37 emulator with
+16 KiB pages; stock DSH Web GUI checks passed on API 30–34. API 35–37 GUI checks
+remain unverified.
+The tested API 29 emulator environment is blocked by its codec surface path.
+Earlier API 32 emulator and API 36 physical-phone checks remain historical.
+See the [Android compatibility matrix](docs/ANDROID-COMPATIBILITY.md) for per-target
+results and gaps.
 `transport_ready` remains a device connection state; the visible panel starts
 preview automatically after a new connection, then reports actual decoding progress.
 
@@ -25,18 +31,82 @@ preview automatically after a new connection, then reports actual decoding progr
 | Start an explicitly selected Android AVD | Implemented |
 | Probe an exact serial and manage process-local session leases | Implemented |
 | JSON-lines control protocol and bounded binary media framing | Implemented |
-| Rust/JNI capture, NDK H.264 encoding and WebCodecs playback | Implemented for the API 32/arm64 development target |
+| Rust/JNI capture, NDK H.264 encoding and WebCodecs playback | API 29–37 arm64 adapters implemented; runtime qualification tracked per target in the compatibility matrix |
 | Single-pointer input and basic Android keys | Implemented; Web/Desktop tap, drag and navigation verified on the target emulator |
-| DSH Web/Desktop connection button and device panel | Implemented; tested against the pinned source development baseline |
+| DSH Web/Desktop connection button and device panel | Implemented; source Web/Desktop and packed stock Web GUI verified; official Desktop CLI installation passed, GUI pending |
 | iOS Simulator and iOS physical devices | Planned; no backend yet |
 
-Android physical devices can be discovered and probed through adb today; this does
-not establish support for physical-device preview or control. Audio and recording
+Android physical devices can be discovered and probed through adb. Preview/input
+qualification is separate from discovery and is recorded per tested target below.
+Audio and recording
 are outside the current scope. MPP draws on scrcpy's separation of video and
 control, but does not run, redistribute or depend on scrcpy, and does not implement
 its wire protocol.
 
-## Build and try
+## Install a local preview package
+
+The packaging script creates a self-contained `.tgz` for a **macOS Apple Silicon
+DSH Host running macOS 14 or later**, with **Android API 29–37 arm64-v8a adapters**. This is a local preview
+artifact; no npm package or GitHub Release has been published. The
+`0.1.0-preview.1` archive passed clean installation, playback and removal on the
+official npm DSH `0.2.1-alpha.1` Web distribution in an isolated profile. This used
+no source patch, runtime-path overrides or model API key. The official Desktop
+`0.2.0-rc.2` app passed signature and notarization checks; `0.1.0-preview.3` was
+installed and enabled through its bundled CLI in an isolated profile. Its GUI
+preview/input acceptance remains pending. The Desktop GUI results below are from
+a source build.
+
+With an archive built using [the packaging guide](docs/DSH-DEVELOPMENT.md#build-a-self-contained-preview-package),
+open DSH **Plugins → Add plugin**, enter its absolute `.tgz` path, install it and
+enable it. For a Web profile, the equivalent CLI command is:
+
+```sh
+dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz
+```
+
+`0.1.0-preview.4` is an example development version, not a published or qualified
+release. Use the version and path of the archive you actually built.
+
+The archive includes the Rust host and matching Android bootstrap/native library;
+their paths resolve relative to the installed package. No `MPP_EXECUTABLE`
+environment variable, Rust, NDK or JDK is needed to use the archive. The DSH Host
+still needs Android SDK platform-tools and an authorized API 29–37 arm64 device;
+check its qualification status in the compatibility matrix before use.
+Emulator use additionally requires the emulator package and an existing supported
+AVD. Web clients need H.264 WebCodecs support. On stock DSH,
+sidebar width remains manually adjustable; the optional width patch is not required
+for preview or input.
+
+Open the device panel, select the exact device and choose **Connect** to begin
+preview. See the [package README](packages/dsh-plugin/README.md) for prerequisites,
+limitations and removal. Explicit `executable` and `deviceAssets` configuration is
+still supported for source development.
+
+After installing a new native package version, restart the DSH Host before
+connecting; hot reload can retain the previous package-relative runtime path.
+
+The earlier `0.1.0-preview.1` packed Web check used the API 32 emulator and covered
+automatic first frame, tap/drag, Home/Back, manual
+sidebar resizing and Pause/Resume across panel reopening. Removing the connected
+plugin unloaded its UI and left no MPP host, device bootstrap process or adb reverse
+mapping. Local evidence is `target/stock-validation/evidence/stock-web-live.png`.
+The packaging guide also describes GitHub Actions builds triggered by relevant
+pushes or an explicit manual version. They upload workflow artifacts without
+publishing a release. Remote build acceptance remains pending; see the
+[release checklist](docs/RELEASING.md).
+
+The `0.1.0-preview.2` archive was installed in the official stock npm DSH Web
+`0.2.1-alpha.1` distribution on macOS arm64. The nubia P0110 (Android 16/API 36,
+arm64) displayed live video at 576×1280 from its 1264×2800 screen. Home/Back, tapping
+Display & Brightness, dragging the settings list and Pause/Resume were verified.
+Pause left no helper. Three separate native start/capture/stop cycles left no helper,
+adb reverse mapping or MPP virtual display. The same new host/device assets also
+passed the API 32 emulator capture/cleanup regression. Local evidence is
+`target/android36/evidence/phone-live.png`. Physical-device rotation, hot unplug
+and long GUI sessions were not tested in this increment. Official Desktop GUI
+acceptance remains pending despite the later successful CLI installation.
+
+## Build and try from source
 
 Requires Rust 1.88 or later. Device commands additionally require Android SDK
 platform-tools (`adb`); AVD discovery and startup require the SDK emulator package
@@ -134,8 +204,9 @@ recur during the native run or latest Web checks; its cause remains unresolved.
 These results do not establish broader platform or sustained end-to-end GUI
 reliability, and no throughput or latency claim is made.
 
-Select an API 32 arm64 emulator and choose **Connect**; the visible phone screen
-starts preview automatically. A chat retains its preview intent through resizing,
+Select an explicitly chosen, authorized device in the implemented API/ABI range
+and choose **Connect**; the visible
+phone screen starts preview automatically. A chat retains its preview intent through resizing,
 temporary hiding/backgrounding and view replacement. Hiding suspends capture and
 releases input; returning to a visible view resumes after the old capture is cleaned
 up, provided the binding is still valid. **Pause** stays paused until **Resume**.
@@ -222,7 +293,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 npm --prefix packages/dsh-plugin run check
-node --test scripts/tests/build-android-device.test.mjs
+node --test scripts/tests/*.test.mjs
 ```
 
 Default tests require no device, Android SDK or network. They exercise protocol,
@@ -233,14 +304,20 @@ performance validation.
 
 Build on macOS or Linux x86_64 with an installed Android NDK, the Rust
 `aarch64-linux-android` target, JDK 17 or later, Android Build Tools with D8 and an
-Android platform `android.jar` at API 32 or later. The output has minimum API 32;
-the live backend nevertheless checks for **exactly API 32/arm64** because its
-hidden framework APIs have not been qualified on other versions. The script uses
+Android platform `android.jar` at API 29 or later. Native and DEX outputs target
+minimum API 29. The shared `android_framework(api)` policy selects the API 29–33
+or 34–37 implementation and requires arm64. The build verifies 16 KiB ELF LOAD
+alignment; the separate API 37 matrix run verifies native behavior on one 16 KiB-page
+emulator. The script uses
 `--locked`, may fetch Cargo dependencies, and installs no SDK or Rust components:
 
 ```sh
 ./scripts/build-android-device.sh
 ```
+
+The default profile is `debug`; set `MPP_BUILD_PROFILE=release` to build release
+Android artifacts. The self-contained packaging script selects release for both
+the host and Android assets.
 
 Set `CARGO_NET_OFFLINE=true` to build without network access when dependencies are
 already cached.
@@ -261,7 +338,7 @@ target/aarch64-linux-android/debug/examples/codec_probe
 `CARGO_TARGET_DIR` relocates all outputs. Set `MPP_DEVICE_ASSETS` to the absolute
 `android-device` output directory when launching DSH with relocated assets.
 
-To run the probe, choose an authorized arm64 Android device running API 32 or later.
+To run the probe, choose an authorized arm64 Android device running API 29 or later.
 Read its numeric `transport_id` from `adb devices -l` and replace `1` below. Using
 `-t` binds every command to that attachment, rather than a reusable serial. The
 commands upload and then remove their probe file:
@@ -288,6 +365,11 @@ arm64-v8a) completed the encoder lifecycle, reporting `encoder: "video/avc"`,
 Those historical probe runs verified configure/create-input-surface/start/dequeue/
 stop/release only, not the current live-video path.
 
-This repository is in development and its crates have `publish = false`. No public
-package release or license has been selected. Official DSH distribution is a future
-upstream contribution, not a current inclusion or endorsement.
+This repository is in development and its crates have `publish = false`. Source
+and staged plugin manifests retain `private: true`; producing a local `.tgz` does
+not publish it. MPP is licensed under [Apache-2.0](LICENSE); bundled dependencies
+retain their own licenses, recorded in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+and `licenses/third-party/`, which are included in preview archives. Public
+publication has not been authorized or performed; the remaining acceptance and
+review steps are in [RELEASING.md](docs/RELEASING.md). Official DSH distribution
+is a future upstream contribution, not a current inclusion or endorsement.

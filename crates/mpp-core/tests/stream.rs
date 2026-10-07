@@ -1,9 +1,30 @@
 use mpp_core::stream::{
-    Channel, ControlCommand, ControlReply, ControlRequest, DEVICE_PROTOCOL, DeviceConfig,
-    DeviceHello, Geometry, InputState, MAX_BATCH_EVENTS, MAX_CONTROL_BYTES, MEDIA_MAX_PAYLOAD,
+    AndroidFramework, Channel, ControlCommand, ControlReply, ControlRequest, DEVICE_PROTOCOL,
+    DeviceConfig, DeviceHello, Geometry, InputState, MAX_BATCH_EVENTS, MAX_CONTROL_BYTES,
+    MEDIA_MAX_PAYLOAD, android_framework,
 };
 use mpp_core::{Error, InputEvent, KeyPhase, TouchPhase};
 use serde_json::{Value, json};
+
+#[test]
+fn framework_selection_follows_android_release_api_changes() {
+    for (api, expected) in [
+        (29, AndroidFramework::SurfaceControl),
+        (30, AndroidFramework::SurfaceControl),
+        (31, AndroidFramework::SurfaceControl),
+        (32, AndroidFramework::SurfaceControl),
+        (33, AndroidFramework::SurfaceControl),
+        (34, AndroidFramework::DisplayManager),
+        (35, AndroidFramework::DisplayManager),
+        (36, AndroidFramework::DisplayManager),
+        (37, AndroidFramework::DisplayManager),
+    ] {
+        assert_eq!(android_framework(api), Some(expected), "API {api}");
+    }
+    for api in [0, 28, 38, u32::MAX] {
+        assert_eq!(android_framework(api), None, "API {api}");
+    }
+}
 
 fn config() -> DeviceConfig {
     DeviceConfig {

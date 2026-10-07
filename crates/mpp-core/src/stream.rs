@@ -11,6 +11,21 @@ pub const DEVICE_PROTOCOL: &str = "mpp-device/1";
 pub const MAX_CONTROL_BYTES: usize = 16_384;
 pub const MAX_BATCH_EVENTS: usize = 64;
 pub const MEDIA_MAX_PAYLOAD: usize = 8 * 1024 * 1024;
+/// Capture and input services changed together in Android 14.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AndroidFramework {
+    SurfaceControl,
+    DisplayManager,
+}
+
+/// The release-tag APIs have been checked through Android 17, not beyond it.
+pub fn android_framework(api: u32) -> Option<AndroidFramework> {
+    match api {
+        29..=33 => Some(AndroidFramework::SurfaceControl),
+        34..=37 => Some(AndroidFramework::DisplayManager),
+        _ => None,
+    }
+}
 
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]

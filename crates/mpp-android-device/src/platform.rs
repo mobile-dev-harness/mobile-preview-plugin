@@ -1,4 +1,4 @@
-//! API-32-only framework access. Every thread owns its own JNI environment and local frames.
+//! Version-specific framework access. Every thread owns its JNI environment and local frames.
 
 use std::{collections::BTreeMap, ffi::c_void, fmt};
 
@@ -6,7 +6,10 @@ use jni::{
     Env, JValue, JavaVM, jni_sig, jni_str,
     objects::{Global, JObject},
 };
-use mpp_core::{Error, InputEvent, KeyPhase, TouchPhase, stream::Geometry};
+use mpp_core::{
+    Error, InputEvent, KeyPhase, TouchPhase,
+    stream::{AndroidFramework, Geometry, android_framework},
+};
 
 #[derive(Debug)]
 pub enum NativeError {
@@ -49,6 +52,10 @@ pub fn failure(message: impl Into<String>) -> NativeError {
 }
 
 pub fn check_platform(env: &mut Env<'_>) -> Result<()> {
+    supported_framework(env).map(|_| ())
+}
+
+fn supported_framework(env: &mut Env<'_>) -> Result<AndroidFramework> {
     let sdk = env
         .get_static_field(
             jni_str!("android/os/Build$VERSION"),
@@ -56,13 +63,17 @@ pub fn check_platform(env: &mut Env<'_>) -> Result<()> {
             jni_sig!("I"),
         )?
         .i()?;
-    if sdk != 32 || !cfg!(target_arch = "aarch64") {
-        return Err(Error::Unsupported {
-            feature: "this native preview prototype requires Android API 32 on arm64".into(),
-        }
-        .into());
-    }
-    Ok(())
+    let framework = u32::try_from(sdk).ok().and_then(android_framework);
+    framework
+        .filter(|_| cfg!(target_arch = "aarch64"))
+        .ok_or_else(|| {
+            Error::Unsupported {
+                feature: format!(
+                    "native preview requires Android 10–17 (API 29–37) on arm64; found API {sdk}"
+                ),
+            }
+            .into()
+        })
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -142,8 +153,13 @@ pub fn display_info(env: &mut Env<'_>) -> Result<DisplayInfo> {
 
 pub struct Capture {
     vm: JavaVM,
-    display: Option<Object>,
+    display: Option<CaptureDisplay>,
     surface: Option<Object>,
+}
+
+enum CaptureDisplay {
+    SurfaceControl(Object),
+    VirtualDisplay(Object),
 }
 
 impl Capture {
@@ -153,6 +169,7 @@ impl Capture {
         display: DisplayInfo,
         geometry: Geometry,
     ) -> Result<Self> {
+        let framework = supported_framework(env)?;
         let mut capture = Self {
             vm: env.get_java_vm()?,
             display: None,
@@ -168,6 +185,45 @@ impl Capture {
             let surface = unsafe { JObject::from_raw(env, raw) };
             capture.surface = Some(env.new_global_ref(surface)?);
             let name = env.new_string("MPP preview")?;
+            if framework == AndroidFramework::DisplayManager {
+                // Android 14+ mirrors through DisplayManager rather than SurfaceControl tokens.
+                // Capture display 0 into the encoder surface, without a new app/task display.
+                let virtual_display = env
+                    .call_static_method(
+                        jni_str!("android/hardware/display/DisplayManager"),
+                        jni_str!("createVirtualDisplay"),
+                        jni_sig!(
+                            "(Ljava/lang/String;IIILandroid/view/Surface;)Landroid/hardware/display/VirtualDisplay;"
+                        ),
+                        &[
+                            JValue::Object(&name),
+                            JValue::Int(geometry.width as i32),
+                            JValue::Int(geometry.height as i32),
+                            JValue::Int(0),
+                            JValue::Object(capture.surface.as_ref().expect("created surface").as_obj()),
+                        ],
+                    )?
+                    .l()?;
+                if virtual_display.is_null() {
+                    return Err(failure("DisplayManager returned no mirror display"));
+                }
+                let owned = match env.new_global_ref(&virtual_display) {
+                    Ok(owned) => owned,
+                    Err(error) => {
+                        env.exception_clear();
+                        let _ = env.call_method(
+                            &virtual_display,
+                            jni_str!("release"),
+                            jni_sig!("()V"),
+                            &[],
+                        );
+                        env.exception_clear();
+                        return Err(error.into());
+                    }
+                };
+                capture.display = Some(CaptureDisplay::VirtualDisplay(owned));
+                return Ok(());
+            }
             let token = env
                 .call_static_method(
                     jni_str!("android/view/SurfaceControl"),
@@ -179,7 +235,7 @@ impl Capture {
             if token.is_null() {
                 return Err(failure("SurfaceControl returned no display token"));
             }
-            capture.display = Some(env.new_global_ref(token)?);
+            capture.display = Some(CaptureDisplay::SurfaceControl(env.new_global_ref(token)?));
             let source = env.new_object(
                 jni_str!("android/graphics/Rect"),
                 jni_sig!("(IIII)V"),
@@ -207,7 +263,10 @@ impl Capture {
                 &[],
             )?;
             let configured = (|| -> Result<()> {
-                let token = capture.display.as_ref().expect("created display").as_obj();
+                let Some(CaptureDisplay::SurfaceControl(token)) = capture.display.as_ref() else {
+                    return Err(failure("missing SurfaceControl display"));
+                };
+                let token = token.as_obj();
                 let surface = capture.surface.as_ref().expect("created surface").as_obj();
                 env.call_static_method(
                     jni_str!("android/view/SurfaceControl"),
@@ -263,12 +322,24 @@ impl Drop for Capture {
                 // Cleanup must remain possible after a failed framework call left an exception pending.
                 env.exception_clear();
                 if let Some(display) = display {
-                    let _ = env.call_static_method(
-                        jni_str!("android/view/SurfaceControl"),
-                        jni_str!("destroyDisplay"),
-                        jni_sig!("(Landroid/os/IBinder;)V"),
-                        &[JValue::Object(display.as_obj())],
-                    );
+                    match display {
+                        CaptureDisplay::SurfaceControl(token) => {
+                            let _ = env.call_static_method(
+                                jni_str!("android/view/SurfaceControl"),
+                                jni_str!("destroyDisplay"),
+                                jni_sig!("(Landroid/os/IBinder;)V"),
+                                &[JValue::Object(token.as_obj())],
+                            );
+                        }
+                        CaptureDisplay::VirtualDisplay(display) => {
+                            let _ = env.call_method(
+                                display.as_obj(),
+                                jni_str!("release"),
+                                jni_sig!("()V"),
+                                &[],
+                            );
+                        }
+                    }
                     env.exception_clear();
                 }
                 if let Some(surface) = surface {
@@ -294,15 +365,23 @@ pub struct Injector {
 
 impl Injector {
     pub fn new(env: &mut Env<'_>, geometry: Geometry) -> Result<Self> {
+        let framework = supported_framework(env)?;
         let manager = env.with_local_frame(8, |env| -> Result<Object> {
-            let manager = env
-                .call_static_method(
+            let manager = match framework {
+                AndroidFramework::DisplayManager => env.call_static_method(
+                    jni_str!("android/hardware/input/InputManagerGlobal"),
+                    jni_str!("getInstance"),
+                    jni_sig!("()Landroid/hardware/input/InputManagerGlobal;"),
+                    &[],
+                )?,
+                AndroidFramework::SurfaceControl => env.call_static_method(
                     jni_str!("android/hardware/input/InputManager"),
                     jni_str!("getInstance"),
                     jni_sig!("()Landroid/hardware/input/InputManager;"),
                     &[],
-                )?
-                .l()?;
+                )?,
+            }
+            .l()?;
             if manager.is_null() {
                 return Err(failure("Android InputManager is unavailable"));
             }

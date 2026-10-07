@@ -1,5 +1,3 @@
 - insert:
     - id: mobile-preview
       name: '@mobile-dev-harness/dsh-mobile-preview'
-      config:
-        executable: !!js process.env.MPP_EXECUTABLE

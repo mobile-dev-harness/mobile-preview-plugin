@@ -2,9 +2,13 @@
 
 MPP has distinct lifecycle, media and live-input transports. The private Rust
 protocols are not MCP, JSON-RPC or scrcpy's wire protocol. The DSH adapter provides
-authenticated browser routes; the current live backend requires API 32/arm64 Android
-and a Unix host. Implemented contracts do not establish device compatibility or
-application-level input success.
+authenticated browser routes; the current live backend implements Android API
+29–37 adapters and requires arm64 and a Unix host. Both the host and device use
+`android_framework(api)`: APIs 29–33 select SurfaceControl/InputManager, and APIs
+34–37 select DisplayManager/InputManagerGlobal; other levels are rejected.
+Implemented contracts and minimum API 29 build outputs do not establish device
+compatibility or application-level input success. Per-target qualification is
+recorded in the [Android matrix](ANDROID-COMPATIBILITY.md).
 
 ## Stdio transport
 
@@ -67,7 +71,8 @@ lowercase-hex device `token`. Optional `max_size`, `bit_rate`, `max_fps` default
 in 100,000–20,000,000, and fps in 1–60. These are requested settings, not measured
 performance guarantees. Calling with just a lease returns `UNSUPPORTED`.
 
-The host verifies the adb attachment, exact API/ABI and device channels before
+The host verifies the adb attachment, implemented API (29–37), arm64 ABI
+and device channels before
 returning `{stream_id, epoch, generation, geometry, video_socket, control_socket}`.
 `geometry` contains encoded `width`/`height`, logical `display_width`/`display_height`
 and rotation 0–3. The sockets are `video.sock` and `control.sock` in the canonical

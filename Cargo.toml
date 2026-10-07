@@ -8,6 +8,7 @@ edition = "2024"
 rust-version = "1.88"
 publish = false
 repository = "https://github.com/mobile-dev-harness/mobile-preview-plugin"
+license = "Apache-2.0"
 
 [workspace.dependencies]
 mpp-core = { path = "crates/mpp-core" }

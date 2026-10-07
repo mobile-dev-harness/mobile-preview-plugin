@@ -9,12 +9,27 @@ const request = body => new Request(`http://localhost${API_PATH}`, {
 
 test('configuration rejects unknown settings, relative tools and invalid timing relationships', () => {
   assert.equal(resolveConfig(config).leaseTtlMs, 45_000);
-  for (const value of [null, [], {}, { executable: 'mpp' },
+  for (const value of [null, [], { executable: 'mpp' },
     { ...config, adb: 'adb' }, { ...config, secret: 'do-not-echo' },
     { ...config, bootTimeoutMs: 10_000 }, { ...config, heartbeatMs: 20_000 },
     { ...config, requestTimeoutMs: Infinity }, { ...config, maxClients: 1.5 }]) {
     assert.throws(() => resolveConfig(value), error => !error.message.includes('do-not-echo'));
   }
+});
+
+test('explicit host configuration retains development and discovery-only defaults', () => {
+  const result = resolveConfig(config);
+  assert.equal(result.executable, config.executable);
+  assert.equal(result.deviceAssets, undefined);
+  assert.equal(resolveConfig({ ...config, deviceAssets: '/tmp/custom-assets' }).deviceAssets, '/tmp/custom-assets');
+});
+
+test('configuration validates settings before looking for the bundled runtime', () => {
+  assert.throws(() => resolveConfig({ executable: null }), /executable must be an absolute path/);
+  assert.throws(() => resolveConfig({ deviceAssets: 'assets' }), /deviceAssets must be an absolute path/);
+  assert.throws(() => resolveConfig({ executable: '/tmp/mpp\0private' }), /executable must be an absolute path/);
+  assert.throws(() => resolveConfig({ extra: 'private' }), /unknown setting/);
+  assert.throws(() => resolveConfig({ videoMaxSize: 257 }), /videoMaxSize must be even/);
 });
 
 test('route passes bounded JSON and the request signal without caching device data', async () => {

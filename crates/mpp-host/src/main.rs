@@ -5,7 +5,7 @@ use mpp_android::Android;
 use mpp_core::{Error, Result};
 use mpp_host::{Host, Response, value};
 
-const HELP: &str = "Mobile Preview Plugin — Rust framework\n\nUsage: mpp [--adb PATH] [--emulator PATH] COMMAND\n\n  devices                 List devices and available AVDs as JSON\n  probe --device SERIAL   Check one Android transport; does not acquire a session\n  boot --avd NAME         Explicitly start an existing AVD and await Android boot\n  serve --stdio           Serve mpp/v1 JSON-lines; leases live until disconnect/EOF\n  --version               Print version\n\nLive preview requires the DSH plugin and Android device assets (API 32, arm64).";
+const HELP: &str = "Mobile Preview Plugin — Rust framework\n\nUsage: mpp [--adb PATH] [--emulator PATH] COMMAND\n\n  devices                 List devices and available AVDs as JSON\n  probe --device SERIAL   Check one Android transport; does not acquire a session\n  boot --avd NAME         Explicitly start an existing AVD and await Android boot\n  serve --stdio           Serve mpp/v1 JSON-lines; leases live until disconnect/EOF\n  --version               Print version\n\nLive preview requires the DSH plugin and Android device assets (Android 10–17 / API 29–37, arm64).";
 
 struct Cli {
     adb: Option<PathBuf>,

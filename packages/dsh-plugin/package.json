@@ -2,8 +2,15 @@
   "name": "@mobile-dev-harness/dsh-mobile-preview",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "description": "Mobile device connection panel backed by the independent Rust MPP host",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mobile-dev-harness/mobile-preview-plugin.git",
+    "directory": "packages/dsh-plugin"
+  },
+  "engines": {"node": "^22.19.0 || >=24.0.0"},
   "main": "./index.js",
   "exports": {
     ".": "./index.js",

@@ -308,7 +308,13 @@ async fn authenticates_channels_in_either_order_and_preserves_media_bytes() {
 }
 #[tokio::test]
 async fn rejects_unqualified_devices_before_deployment() {
-    for (field, value) in [("sdk", "33"), ("abi", "x86_64")] {
+    for (field, value) in [
+        ("sdk", "28"),
+        ("sdk", "38"),
+        ("sdk", "0"),
+        ("sdk", "invalid"),
+        ("abi", "x86_64"),
+    ] {
         let fixture = Fixture::new();
         fs::write(fixture.directory.join(field), value).unwrap();
         assert!(matches!(
@@ -319,6 +325,27 @@ async fn rejects_unqualified_devices_before_deployment() {
             Err(Error::Unsupported { .. })
         ));
         assert!(!fixture.log().contains("mkdir"));
+    }
+}
+#[tokio::test]
+async fn android_10_through_17_use_owned_handshakes_and_cleanup() {
+    for api in 29..=37 {
+        let fixture = Fixture::new();
+        fs::write(fixture.directory.join("sdk"), format!("{api}\n")).unwrap();
+        let peer = fixture.peer(Fault::None);
+        let mut running = fixture
+            .android()
+            .start_stream(&device(), fixture.options())
+            .await
+            .unwrap_or_else(|error| panic!("API {api}: {error}"));
+        let sockets = peer.await.unwrap();
+        assert_eq!(sockets.len(), 2);
+        assert_eq!(running.geometry.display_width, 1080);
+        running.close().await.unwrap();
+        drop(sockets);
+        assert!(fixture.exists("stdin-closed"));
+        assert!(fixture.exists("directory-removed"));
+        assert!(fixture.exists("reverse-removed"));
     }
 }
 #[tokio::test]
@@ -534,7 +561,7 @@ async fn shutdown_cancels_pending_handshake_without_requiring_caller_abort() {
     assert!(fixture.exists("reverse-removed"));
     assert!(fixture.exists("directory-removed"));
     let independent = fixture.android();
-    fs::write(fixture.directory.join("sdk"), b"33").unwrap();
+    fs::write(fixture.directory.join("sdk"), b"38").unwrap();
     assert!(matches!(
         independent.start_stream(&device(), fixture.options()).await,
         Err(Error::Unsupported { .. })

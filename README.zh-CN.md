@@ -8,9 +8,13 @@ mobile-dev-harness（mdh）。
 
 **当前状态：已实现 Android 视频与控制链路的开发预览版。** Rust 后端与本地 DSH
 插件提供设备发现、显式启动模拟器、会话所有权、H.264 视频流以及单指触摸和基础
-按键输入。实时采集当前仅开放 **Android API 32、arm64-v8a**，需要 Unix 主机和
-支持 WebCodecs 的客户端。已在目标模拟器上执行下述原生、Web 与 Desktop 检查，
-但这不等于广泛的设备兼容性或性能验证。
+按键输入。当前候选版已实现 **Android 10–17 / API 29–37 arm64-v8a 适配**，
+需要 Unix 主机和支持 WebCodecs 的客户端。运行验收仍在进行，进入允许范围不代表
+兼容性通过。API 30–37 矩阵目标的原生采集／输入／清理已通过，其中 API 37 模拟器
+使用 16 KiB 页；API 30–34 的原版 DSH Web 界面检查已通过，API 35–37 界面仍未验证。所测
+API 29 模拟器环境受编码器 surface 路径问题阻塞。此前 API 32 模拟器和 API 36
+真机结果作为历史证据保留。
+各目标结果与缺口见 [Android 兼容性矩阵](docs/ANDROID-COMPATIBILITY.md)。
 `transport_ready` 仍然只是设备连接状态；新连接建立后，可见面板会自动启动预览，
 并显示真实的解码进度。
 
@@ -22,16 +26,70 @@ mobile-dev-harness（mdh）。
 | 启动明确选定的 Android AVD | 已实现 |
 | 按精确序列号探测设备，管理进程内会话租约 | 已实现 |
 | JSON-lines 控制协议与有大小限制的二进制媒体分帧 | 已实现 |
-| Rust/JNI 采集、NDK H.264 编码和 WebCodecs 播放 | 已实现，面向 API 32/arm64 开发目标 |
+| Rust/JNI 采集、NDK H.264 编码和 WebCodecs 播放 | 已实现 API 29–37 arm64 适配，按兼容性矩阵逐目标验收 |
 | 单指触摸与基础 Android 按键 | 已实现，已在目标模拟器验证 Web/Desktop 点击、拖动和导航 |
-| DSH Web/Desktop 连接按钮与设备面板 | 已实现，已在固定的源码开发基线上验证 |
+| DSH Web/Desktop 连接按钮与设备面板 | 已实现，源码 Web/Desktop 和原版 Web 安装包 GUI 已验证；官方 Desktop CLI 安装通过，GUI 待验收 |
 | iOS Simulator 与 iOS 真机 | 计划中，尚无后端 |
 
-目前可以通过 adb 发现和探测 Android 真机，但这不代表已支持真机预览或控制。音频
+目前可以通过 adb 发现和探测 Android 真机；预览／输入验收独立于设备发现，按下方
+实际测试目标记录。音频
 和录制不在当前范围内。MPP 参考 scrcpy 将视频与控制分离的设计，但不运行、分发
 或依赖 scrcpy，也不实现其通信协议。
 
-## 构建与试用
+## 安装本地预览包
+
+打包脚本会生成自带运行文件的 `.tgz`，当前面向 **macOS 14 或更新版本的 Apple Silicon DSH Host**
+并提供 **Android API 29–37 arm64-v8a 适配**。这是本地预览产物；尚未发布 npm 包或
+GitHub Release。`0.1.0-preview.1` 安装包已在官方 npm DSH `0.2.1-alpha.1`
+Web 发行版的独立 profile 中通过干净安装、播放和卸载验收，未使用源码补丁、
+运行文件路径覆盖或模型 API key。官方 Desktop `0.2.0-rc.2` 应用已通过签名和
+公证检查；`0.1.0-preview.3` 已通过其内置 CLI 在独立 profile 中安装并启用。
+该发行版的 GUI 预览／输入仍待验收，下方 Desktop GUI 结果来自源码构建。
+
+按照[打包说明](docs/DSH-DEVELOPMENT.md#build-a-self-contained-preview-package)生成安装包后，
+在 DSH 的 **Plugins → Add plugin** 中输入 `.tgz` 的绝对路径，安装并启用。
+Web profile 对应的 CLI 命令为：
+
+```sh
+dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz
+```
+
+`0.1.0-preview.4` 只是开发版本示例，并非已发布或已验收的版本。请使用实际生成
+安装包的版本和路径。
+
+安装包包含 Rust 主程序和配套的 Android bootstrap／原生库，启动时会按已安装
+插件的位置自动解析路径。使用安装包不需要设置 `MPP_EXECUTABLE`，也不需要
+Rust、NDK 或 JDK。DSH Host 仍需安装 Android SDK platform-tools，并连接已授权的
+API 29–37 arm64 设备；使用前请查看兼容性矩阵中的验收状态。使用模拟器时还需要
+emulator 组件和现有的受支持 AVD。
+Web 客户端需要 H.264 WebCodecs 支持。
+原版 DSH 的侧栏宽度继续手动调整；预览和输入不依赖可选的宽度补丁。
+
+打开设备面板，选择明确的设备并点击 **Connect** 即可开始预览。前置条件、限制
+和卸载方法见[插件包说明](packages/dsh-plugin/README.md)。源码开发仍支持显式
+配置 `executable` 和 `deviceAssets`。
+
+安装新的原生插件包版本后，请先重启 DSH Host 再连接设备；热重载可能仍保留上一版
+包内运行文件的相对路径。
+
+此前 `0.1.0-preview.1` 安装包的 Web 检查使用 API 32 模拟器，覆盖自动首帧、
+点击／拖动、Home／Back、手动调整侧栏宽度，以及
+面板重新打开后的 Pause／Resume。连接中卸载插件后，界面完成卸载，MPP 主程序、
+设备 bootstrap 进程和 adb reverse 映射均已清理。本地证据为
+`target/stock-validation/evidence/stock-web-live.png`。打包说明还介绍了由相关路径
+推送或显式指定手动版本触发的 GitHub Actions 构建，仅上传工作流产物，不发布版本。
+远端构建验收仍待完成，见[发布检查清单](docs/RELEASING.md)。
+
+`0.1.0-preview.2` 安装包已安装到 macOS arm64 上的官方 npm DSH Web
+`0.2.1-alpha.1` 发行版。nubia P0110（Android 16/API 36、arm64）的 1264×2800
+屏幕已以 576×1280 显示实时画面，并验证了 Home／Back、点击进入显示与亮度、
+拖动设置列表以及 Pause／Resume。暂停后没有遗留 helper；三轮独立的原生
+启动／采集／停止均清理了 helper、adb reverse 映射和 MPP 虚拟显示。相同的新
+主程序与设备端产物还通过了 API 32 模拟器的采集／清理回归。本地证据为
+`target/android36/evidence/phone-live.png`。本次未测试真机旋转、热拔插和长时间
+GUI 运行。此后官方 Desktop 的 CLI 安装已通过，GUI 验收仍待完成。
+
+## 从源码构建与试用
 
 需要 Rust 1.88 或以上版本。设备命令还需要 Android SDK platform-tools（`adb`）；
 AVD 发现与启动需要 SDK emulator 组件以及已创建的 AVD。
@@ -115,7 +173,9 @@ adb reverse 映射。随后完整重启 Desktop 进程，在移除临时诊断�
 原生持续运行或最新 Web 检查中再次出现，但原因仍未查明。这些结果不能证明更广泛
 的平台兼容性或端到端 GUI 的持续可靠性，也不构成吞吐量或延迟承诺。
 
-选择 API 32 arm64 模拟器并点击**连接**，可见的手机屏幕会自动启动预览。聊天会在
+明确选择已授权且处于当前 API／ABI 实现范围内的设备，点击**连接**后，可见的手机
+屏幕会自动启动预览。
+聊天会在
 调整大小、暂时隐藏／进入后台或视图替换期间保留预览意图。隐藏时暂停采集并释放
 输入；只要连接仍有效，返回可见视图后会等待旧采集清理完毕，再自动恢复。主动
 **暂停**后将保持暂停，直到点击**继续**。真正的错误会阻止当前可见视图不断重试；
@@ -191,7 +251,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 npm --prefix packages/dsh-plugin run check
-node --test scripts/tests/build-android-device.test.mjs
+node --test scripts/tests/*.test.mjs
 ```
 
 默认测试不需要设备、Android SDK 或网络，覆盖协议、所有权、分帧和子进程行为；
@@ -201,13 +261,18 @@ node --test scripts/tests/build-android-device.test.mjs
 
 可以在 macOS 或 Linux x86_64 上构建，需要已安装的 Android NDK、Rust
 `aarch64-linux-android` 目标、JDK 17 或以上版本、含 D8 的 Android Build Tools，
-以及 API 32 或以上版本的 Android platform `android.jar`。产物最低 API 为 32，
-但实时后端仍检查**恰好为 API 32/arm64**，因为它使用的隐藏 framework API 尚未
-验证其他版本。脚本使用 `--locked`，可能下载 Cargo 依赖，不安装 SDK 或 Rust 组件：
+以及 API 29 或以上版本的 Android platform `android.jar`。原生与 DEX 产物最低
+API 均为 29；共享的 `android_framework(api)` 策略选择 API 29–33 或 34–37
+实现，并要求 arm64。构建会验证 ELF LOAD 的 16 KiB 对齐；另有 API 37 矩阵测试
+验证了一台 16 KiB 页模拟器上的原生运行。脚本使用 `--locked`，可能下载 Cargo 依赖，
+不安装 SDK 或 Rust 组件：
 
 ```sh
 ./scripts/build-android-device.sh
 ```
+
+默认使用 `debug` 配置；设置 `MPP_BUILD_PROFILE=release` 可构建设备端 release
+产物。自包含安装包的打包脚本会为主程序和 Android 产物都选择 release。
 
 依赖已缓存时，可设置 `CARGO_NET_OFFLINE=true` 以禁止构建访问网络。
 
@@ -226,7 +291,7 @@ target/aarch64-linux-android/debug/examples/codec_probe
 `CARGO_TARGET_DIR` 可以改变全部产物的位置。使用其他输出位置启动 DSH 时，将
 `MPP_DEVICE_ASSETS` 设置为 `android-device` 输出目录的绝对路径。
 
-运行探测前，选择一台已授权、运行 API 32 或以上版本的 arm64 Android 设备。
+运行探测前，选择一台已授权、运行 API 29 或以上版本的 arm64 Android 设备。
 从 `adb devices -l` 中读取其数字 `transport_id`，替换下方的 `1`。使用 `-t`
 将每条命令绑定到这一次设备连接，避免序列号复用导致目标变化。以下命令上传并在
 使用后删除本次探测文件：
@@ -251,5 +316,10 @@ adb -t "$MPP_TRANSPORT_ID" shell rm /data/local/tmp/mpp-codec-probe
 `capture_verified: false` 和 `first_output: null`。这仅验证了配置、创建输入
 surface、启动、输出出队、停止和释放；这些历史探测没有验证当前的实时视频链路。
 
-仓库处于开发阶段，各 crate 均设置了 `publish = false`。尚未确定公开包发布或许可
-协议。纳入 DSH 官方分发属于未来的上游贡献目标，不代表目前已被内置或获得认可。
+仓库处于开发阶段，各 crate 均设置了 `publish = false`，源码和暂存插件的 manifest
+均保留 `private: true`；生成本地 `.tgz` 不会发布它。MPP 采用
+[Apache-2.0](LICENSE) 许可；随包依赖保留各自的许可，记录于
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 和 `licenses/third-party/`，
+这些文件也随预览包分发。公开发布尚未授权，也未执行；剩余验收和审核步骤见
+[RELEASING.md](docs/RELEASING.md)。纳入 DSH 官方分发属于未来的上游贡献目标，
+不代表目前已被内置或获得认可。

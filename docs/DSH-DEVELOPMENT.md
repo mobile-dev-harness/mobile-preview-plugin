@@ -3,7 +3,7 @@
 The MPP adapter is a local external plugin for DSH Web and Desktop. Its JavaScript
 host/UI layer delegates Android discovery, capture and input to Rust. It implements
 a connection panel, H.264/WebCodecs preview, single-pointer interaction and basic
-Android keys. The current candidate implements **API 29–37 arm64-v8a Android
+Android keys. The current release implements **API 29–37 arm64-v8a Android
 adapters on a Unix host**. The shared host/device policy selects the API 29–33
 SurfaceControl/InputManager path or API 34–37 DisplayManager/InputManagerGlobal
 path. Implementation eligibility is separate from runtime qualification; consult
@@ -21,8 +21,11 @@ exact source/binary identity, scoped lifecycle passes and outstanding checks.
 These passes are separate from the historical Android archive evidence below.
 Bottom Home swipe passed in source Web/Desktop, and a user-operated Web App
 Switcher gesture passed on 2026-10-10. Manual Desktop App Switcher is not qualified.
-The `0.1.0-preview.5` candidate combines existing Android and local iOS Simulator;
-it excludes physical iOS and awaits its own archive checks in [RELEASING.md](RELEASING.md).
+The published `0.1.0-preview.5` prerelease combines existing Android and local iOS Simulator;
+it excludes physical iOS. The exact CI archive from `31a2bdb` passed its recorded
+Web/Desktop, native cleanup/reboot, Web removal/reinstallation, native App Switcher
+and Android regression checks; scoped acceptance and remaining limitations are
+in [RELEASING.md](RELEASING.md).
 It provides no agent screenshot tools and requires no mdh installation.
 The adapter has no third-party Node dependencies and uses DSH's runtime-provided
 React/UI services. Lifecycle operations use an internal Rust stdio protocol;
@@ -34,8 +37,11 @@ uses `ctx.inject(['tools'], ...)`, so the manual panel works without that servic
 
 ## Build a self-contained preview package
 
-The first public GitHub Release candidate is `0.1.0-preview.5`; exact CI artifact
-acceptance and publication are tracked in [RELEASING.md](RELEASING.md).
+The first public prerelease is
+[`v0.1.0-preview.5`](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5).
+Download its [archive](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz)
+and [checksum](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz.sha256);
+exact artifact provenance and qualification are recorded in [RELEASING.md](RELEASING.md).
 The packaging path targets a macOS 14 or later Apple Silicon DSH Host with Android
 API 29–37 arm64 adapters and local iOS Simulator through installed Xcode. The
 qualified iOS source target is Xcode 26.4 / iOS 26.4 / iPhone 17 on macOS 26.7;
@@ -68,8 +74,9 @@ target/packages/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm
 ```
 
 Use `--output-dir PATH` to select a destination. `--version` is required and has no
-default. `0.1.0-preview.5` is the selected candidate; final artifact verification
-and publication remain pending. Versions must use the source package version followed by
+default. `0.1.0-preview.5` is published; its immutable artifact and tag remain on
+source commit `31a2bdb`, independently of later documentation updates. Versions must
+use the source package version followed by
 `-preview.<number>`. Existing archive/checksum files are not overwritten; choose
 another preview version or output directory. The Rust host version must match
 the source plugin version. The staged package remains `private: true`.
@@ -208,7 +215,7 @@ belong to the earlier local archive, despite the shared preview.3 version number
 
 The source repository is public and staged packages retain `private: true` for npm;
 MPP uses Apache-2.0 with bundled third-party notices. See [RELEASING.md](RELEASING.md)
-for preview.5 artifact acceptance, remaining limits and GitHub publication status.
+for preview.5 artifact acceptance, remaining limits and its published GitHub release.
 The archive results above are historical and retain their own checksums.
 
 ## Compatibility baseline and prerequisites
@@ -614,6 +621,6 @@ device checks sequentially. Web displays devices attached to the DSH Host
 machine, not automatically to the browser's machine. No continuous frames enter
 the model context, and a panel does not itself grant agent vision/control.
 
-MPP is a public-source development preview. GitHub publication of
-`0.1.0-preview.5` is authorized and awaits final artifact acceptance; npm stays
-private. No official DSH inclusion is claimed, and this is not a 1.0 stable release.
+MPP is a public-source development preview. GitHub prerelease `v0.1.0-preview.5`
+is published with scoped exact-artifact acceptance. npm stays private. No official
+DSH inclusion is claimed, and this is not a 1.0 stable release.

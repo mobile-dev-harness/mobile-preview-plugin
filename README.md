@@ -9,17 +9,19 @@ devices to DeepSeek Harness Web and Desktop. The intended product provides live
 preview and input for emulators, simulators and physical devices, without requiring
 mobile-dev-harness (mdh).
 
-The public repository is preparing its first GitHub Release, **`0.1.0-preview.5`**:
-existing Android support plus local iOS Simulator support. Final CI artifact
-verification and publication are pending; see the [release checklist](docs/RELEASING.md).
+The first public prerelease, [**`v0.1.0-preview.5`**](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5),
+is published: existing Android support plus local iOS Simulator support. The exact
+CI archive passed provenance and the recorded Web/Desktop/native checks; scoped
+acceptance and remaining limitations are in the [release record](docs/RELEASING.md).
 The npm package remains private. This is a development preview, not stable 1.0.
 
 **Current status: development preview with Android video/control and experimental
 capability-gated iOS Simulator video, single-pointer tap/drag and Home.** The
 current local source build verified Home, canvas tap and visible drag scrolling
 in stock DSH Web `0.2.1-alpha.1` and official Desktop `0.2.0-rc.2` on macOS
-26.7 Apple Silicon / Xcode 26.4 / iOS 26.4 / iPhone 17. These local source checks
-do not qualify the pending preview.5 archive. Native input effects and Web
+26.7 Apple Silicon / Xcode 26.4 / iOS 26.4 / iPhone 17. The preview.5 archive from
+`31a2bdb` separately passed fresh Web/Desktop video and controls, explicit Simulator
+boot, Pause/Resume and native cleanup/reboot checks. Native input effects and Web
 tap coordinates after canvas resizing also passed on that target. Initial scope
 is upright portrait, without keyboard/text/IME,
 multi-touch, Back or iOS physical devices. Input is enabled only after a native
@@ -31,7 +33,7 @@ see [iOS Simulator evidence and remaining checks](docs/IOS-SIMULATOR.md).
 For Android, the Rust backend and local DSH plugin provide device discovery,
 explicit emulator startup, session ownership, H.264 streaming and
 single-pointer/basic-key input.
-The current candidate implements **Android 10–17 / API 29–37 arm64-v8a adapters**,
+The current release implements **Android 10–17 / API 29–37 arm64-v8a adapters**,
 using a Unix host and a WebCodecs-capable client. Runtime qualification is still in
 progress; eligibility is not a compatibility pass. Native capture/input/cleanup
 has passed on the API 30–37 matrix targets, including an API 37 emulator with
@@ -69,13 +71,13 @@ are outside the current scope. MPP draws on scrcpy's separation of video and
 control, but does not run, redistribute or depend on scrcpy, and does not implement
 its wire protocol.
 
-## Install the preview candidate
+## Install the preview release
 
 The packaging script creates a self-contained `.tgz` for a **macOS Apple Silicon
 DSH Host running macOS 14 or later**, with **Android API 29–37 arm64-v8a adapters**
 and local **iOS Simulator** support through installed Xcode. iOS qualification is
 scoped to macOS 26.7 / Xcode 26.4 / iOS 26.4 / iPhone 17. Physical iOS devices are
-excluded. The `0.1.0-preview.5` archive identity and acceptance are tracked in the
+excluded. The verified `0.1.0-preview.5` archive identity and scoped acceptance are tracked in the
 [release checklist](docs/RELEASING.md); earlier package checks remain historical.
 The
 `0.1.0-preview.1` archive passed clean installation, playback and removal on the
@@ -95,9 +97,11 @@ enable it. For a Web profile, the equivalent CLI command is:
 dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz
 ```
 
-`0.1.0-preview.5` is the selected release candidate. Use the exact archive whose
-checksum and verification record appear in the release checklist; publication
-has not yet been confirmed.
+Download the [macOS Apple Silicon archive](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz),
+its [SHA-256 file](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz.sha256),
+and the [qualification record](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/qualification-0.1.0-preview.5.json).
+The immutable archive and tag use source commit `31a2bdb`; this later documentation
+update does not replace the package. Verify the checksum before installation.
 
 The archive includes the Rust host and matching Android bootstrap/native library;
 their paths resolve relative to the installed package. No `MPP_EXECUTABLE`
@@ -468,9 +472,9 @@ This source repository is public and in development; its crates have
 producing a local `.tgz` does
 not publish it. MPP is licensed under [Apache-2.0](LICENSE); bundled dependencies
 retain their own licenses, recorded in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
-and `licenses/third-party/`, which are included in preview archives. GitHub Release
-publication is authorized for `0.1.0-preview.5` and awaits final artifact acceptance;
-npm publication is outside this release. The tested scope, remaining limits and
+and `licenses/third-party/`, which are included in preview archives.
+[GitHub prerelease `v0.1.0-preview.5`](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5)
+is published; npm publication is outside this release. The tested scope, remaining limits and
 release status are in [RELEASING.md](docs/RELEASING.md). Official DSH distribution
 is a future upstream contribution, not a current inclusion or endorsement.
 This is a development preview, not a 1.0 stable release.

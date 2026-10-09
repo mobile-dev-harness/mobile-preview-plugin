@@ -17,9 +17,11 @@ portrait capture, without keyboard/text/IME, multi-touch, Back or physical devic
 Native and interactive Web/Desktop Home/tap/drag effects passed on the recorded
 target; these observed effects remain separate from protocol acknowledgements.
 
-These contracts form the Android and local iOS Simulator scope for release
-candidate `0.1.0-preview.5`. Physical iOS is excluded. Final archive verification
-and GitHub publication status are tracked in [RELEASING.md](RELEASING.md).
+These contracts form the Android and local iOS Simulator scope for published
+[prerelease `v0.1.0-preview.5`](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5).
+Physical iOS is excluded. Scoped verification of the unchanged archive and tag
+from `31a2bdb`, download links and remaining limitations
+are tracked in [RELEASING.md](RELEASING.md).
 
 ## Stdio transport
 

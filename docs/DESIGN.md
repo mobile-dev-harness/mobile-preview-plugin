@@ -7,10 +7,12 @@ device connection, live preview and input for DSH Web and Desktop, with eventual
 Android and iOS simulator and physical-device support. DSH UI code is a thin host
 integration; device/session/media behavior belongs to Rust.
 
-The `0.1.0-preview.5` GitHub Release candidate includes existing Android support
+The published [GitHub prerelease `v0.1.0-preview.5`](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5)
+includes existing Android support
 and local iOS Simulator on macOS Apple Silicon. Physical iOS is outside this
-release. The repository is public; npm stays private. Final artifact acceptance
-and publication are pending in [RELEASING.md](RELEASING.md).
+release. The repository is public; npm stays private. Scoped acceptance of the
+immutable archive and tag from `31a2bdb`, download links and remaining limitations are in
+[RELEASING.md](RELEASING.md).
 
 The current development implementation includes Android discovery, explicit
 emulator startup, transport leases, display capture, H.264 transport and
@@ -37,7 +39,7 @@ This source increment is separate from the previously qualified Android archives
 The source bottom-edge Home gesture passed in Web and Desktop. A manual Web App
 Switcher gesture passed on 2026-10-10; manual Desktop App Switcher is unqualified.
 These observations apply to the recorded Xcode 26.4 / iOS 26.4 / iPhone 17 target,
-not every runtime or the pending release archive.
+not every runtime. The release archive's own results are recorded separately.
 
 Audio, recording, remote device farms and a dependency on mdh are out of scope.
 The implementation does not launch or redistribute scrcpy. Its separate media

@@ -7,22 +7,54 @@ input capability leaves a read-only preview. The previous read-only phase passed
 local decoded-video checks in
 stock DSH Web `0.2.1-alpha.1` and official Desktop `0.2.0-rc.2` on macOS 26.7 Apple
 Silicon / Xcode 26.4 / iOS 26.4 / iPhone 17. These scoped passes leave several
-lifecycle checks open, as recorded below. These local checks precede final
-`0.1.0-preview.5` artifact acceptance; no previously qualified Android archive
-inherits this iOS scope.
+lifecycle checks open, as recorded below. The exact `0.1.0-preview.5` archive now
+has its own scoped qualification record below; earlier Android archives do not
+inherit this iOS scope.
 
-## Release candidate
+## Published preview.5 qualification
 
-The public repository is preparing **`0.1.0-preview.5`** for GitHub Release.
+[**GitHub prerelease `v0.1.0-preview.5`**](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5)
+is published, with the [archive](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz),
+[checksum](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz.sha256)
+and [qualification JSON](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/qualification-0.1.0-preview.5.json).
 The iOS scope is local Simulator on the recorded macOS Apple Silicon / Xcode 26.4 /
-iOS 26.4 / iPhone 17 target. Physical iOS is excluded. Final CI archive identity,
-tests, exact-artifact checks and publication are pending in the
-[release checklist](RELEASING.md); the binary hashes and counts below identify
-their original development increments, not the pending release archive.
+iOS 26.4 / iPhone 17 target. Physical iOS is excluded. CI, clean provenance and the
+scoped exact-archive checks passed. The [release record](RELEASING.md) records
+publication, checksums and remaining limitations.
+
+The immutable archive comes from commit
+`31a2bdb1c4d96345c7735377d6d861fe52ce12a4`, which remains the release-tag target.
+Archive SHA-256 is
+`04cd7427bdb45bb00d823d789a2573969711a93cee1da837132520703f59f2af`;
+the bundled host SHA-256 is
+`aab0a241a91b5903bba932cf3114172739fe441ca1c69e7025da971892c0dcc9`.
+The source-tree hash, successful six-job CI and packaging runs are pinned in the
+release checklist. This documentation follow-up reports that unchanged archive;
+older binary hashes/counts below remain attached to their development increments.
+
+| Exact preview.5 archive check | Result |
+| --- | --- |
+| Fresh stock Web 0.2.1-alpha.1 | Passed: plugin UI booted the selected stopped Simulator, then Connect automatically decoded the first frame |
+| Web input and viewport | Passed: Settings tap, visible scrolling, Home, bottom Home swipe and accurate tap at 800×900 after resizing |
+| Web Pause/reopen/Resume | Passed; Pause survived panel reopening and its capture child was reaped |
+| Fresh official Desktop 0.2.0-rc.2 | Passed: first frame, tap/drag/Home/bottom Home swipe, Pause/Resume and disconnect |
+| Native STOP, stdin EOF and SIGTERM | Passed: exit 0, no forced termination and owned sockets removed |
+| Actual Simulator reboot | Passed: old lease became `STALE_SESSION`; reconnection used a new boot identity and new generation |
+| CI | All six jobs passed; macOS Rust 153 passed with one device probe ignored, plugin 185 passed, scripts 46 passed; format, Clippy and MSRV 1.88 passed |
+| Web GUI removal/reinstallation | Passed: after Plugin Manager hid the connected preview, removal cleared dependency/bundle/link and owned host/capture; local `.tgz` Add and Enable Now restored matching native hashes, then Connect reached Live |
+| Final native App Switcher | Passed: the CI-built host's timed bottom swipe/hold produced actual cards observed through freshly reinstalled Web |
+| Live orientation/geometry rejection and manual Desktop App Switcher | Unqualified |
+
+The Desktop run used `--force-renderer-accessibility` only for automated accessibility
+inspection, not a media or application-code change. A separate exact-archive
+Android API 35 arm64 five-second stream/cleanup smoke passed without input.
+The final [reinstalled-Web App Switcher view](../target/release-simulator/evidence/web-reinstalled-app-switcher.png)
+records the observed result; the published qualification JSON retains release evidence.
 
 Web and Desktop source checks cover video, single-pointer tap/drag, Home and bottom
-Home swipe. The actual manual Web App Switcher gesture passed on 2026-10-10;
-manual Desktop App Switcher remains unqualified. Missing input capability retains
+Home swipe. The earlier manual Web App Switcher gesture passed on 2026-10-10;
+manual Desktop App Switcher remains unqualified. The exact-archive timed native
+check above is separate from mouse-operated UI qualification. Missing input capability retains
 read-only video. Fixed portrait geometry, private CoreSimulator interfaces and
 gesture-end cleanup limitations remain part of the release scope.
 
@@ -146,6 +178,9 @@ table distinguishes checked cleanup paths from live cases that remain open.
 
 ## Current input qualification
 
+This section records the pre-packaging input-feature baseline. The preview.5
+archive's newer checks are in the published-preview section above.
+
 The current input checks used macOS **26.7** Apple Silicon, Xcode **26.4 (17E192)**,
 iOS **26.4**, iPhone **17**, CoreSimulator **1174.9.2**, and Simulator UDID
 `D228B7F4-088B-40F8-ACA6-2083A2810F43`. The source remains an uncommitted dirty
@@ -176,7 +211,7 @@ separately from DTUHID barrier acknowledgements.
 | Plugin and script tests | 185 plugin tests and 46 script tests passed |
 | Format, Clippy and MSRV | Passed, including Rust 1.88 |
 | Android API 35 regression with current input build | Passed for five seconds without input: native stream and cleanup |
-| UI boot, live rotation/geometry rejection, actual reboot invalidation and full plugin uninstall | Remain not live-qualified |
+| UI boot, live rotation/geometry rejection, actual reboot invalidation and full plugin uninstall | Not live-qualified for this source baseline; newer exact-archive boot/reboot results are recorded above |
 | Other Xcode/runtime versions | Unqualified |
 
 Local native evidence: [Settings after tap](../target/ios-input/evidence/settings-after-native-tap.png),

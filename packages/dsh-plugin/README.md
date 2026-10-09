@@ -7,9 +7,10 @@ mobile-dev-harness (mdh). It provides a device panel, H.264 video, single-pointe
 input and basic Android keys. One optional agent tool selects the platform and
 requests the current chat's panel; it provides no agent device control or model vision.
 
-`0.1.0-preview.5` is the first public GitHub Release candidate, covering existing
-Android support and local iOS Simulator only. The repository is public; the npm
-package remains private. Final artifact acceptance and publication status are
+[`v0.1.0-preview.5`](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5)
+is the first published GitHub prerelease, covering existing Android support and
+local iOS Simulator only. The repository is public; the npm package remains
+private. Scoped exact-archive acceptance and remaining limitations are
 tracked in the source repository's `docs/RELEASING.md`.
 
 ## Prerequisites
@@ -30,8 +31,9 @@ tracked in the source repository's `docs/RELEASING.md`.
   remain unqualified. The current input build passed actual native, stock Web and
   official Desktop Home/tap/drag effects on that target, including a Web tap after
   canvas resizing. See `docs/IOS-SIMULATOR.md` in the source repository. The
-  preview.5 candidate still needs its own artifact checks; earlier preview.4
-  archives and Android archive evidence do not establish this iOS scope.
+  preview.5 archive from `31a2bdb` separately passed fresh Web/Desktop video and
+  controls, plugin UI Simulator boot, Pause/Resume, native cleanup and actual reboot
+  invalidation. Earlier preview.4 archives do not establish this iOS scope.
 - An H.264 WebCodecs-capable client. Earlier preview archives were checked on the
   official npm DSH `0.2.1-alpha.1` Web distribution. Source Web/Desktop checks used
   commit `5badb15009ae1756c3afe0ae0cef1faafc290ccc`. The official Desktop
@@ -53,8 +55,15 @@ install it and enable it. For a Web CLI profile:
 dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz
 ```
 
-Use the exact `0.1.0-preview.5` candidate archive and verify its accompanying
+Use the exact `0.1.0-preview.5` release archive and verify its accompanying
 checksum. Earlier local source or preview-archive passes do not qualify a new file.
+Download the [archive](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz),
+[checksum](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz.sha256)
+and [qualification record](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/qualification-0.1.0-preview.5.json).
+The selected archive SHA-256 is
+`04cd7427bdb45bb00d823d789a2573969711a93cee1da837132520703f59f2af`, built from
+`31a2bdb1c4d96345c7735377d6d861fe52ce12a4`. This later documentation records that
+unchanged published artifact; the tag stays on that source commit.
 
 After installing a new native package version, restart the DSH Host; hot reload can
 retain an old package-relative native path. Then open a conversation's mobile-device
@@ -196,8 +205,8 @@ notice-file hashes, and rejects source changes during the build.
 
 The source repository is public; source and staged package manifests retain
 `private: true` to prevent npm publication. This is a development preview, not a
-1.0 stable release. GitHub publication is authorized for `0.1.0-preview.5`; local
-packaging alone does not publish it. The source repository's `docs/RELEASING.md`
-tracks final artifact acceptance, publication status and remaining limits.
+1.0 stable release. GitHub prerelease `v0.1.0-preview.5` is published; local
+packaging alone does not publish further releases. The source repository's
+`docs/RELEASING.md` tracks artifact acceptance, publication and remaining limits.
 MPP is not an official DeepSeek plugin or
 distribution component.

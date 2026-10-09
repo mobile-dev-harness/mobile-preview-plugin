@@ -8,15 +8,17 @@ Mobile Preview Plugin（MPP）是独立的 Rust 框架，用于为 DeepSeek Harn
 Desktop 连接移动设备。目标产品将提供模拟器与真机的实时预览和输入控制，不依赖
 mobile-dev-harness（mdh）。
 
-公开源码仓库正在准备首个 GitHub Release：**`0.1.0-preview.5`**，范围为现有 Android
-支持加上本机 iOS Simulator。最终 CI 归档验收和发布尚待完成，详见
-[发布检查表](docs/RELEASING.md)。npm 包继续保持私有。这是开发预览，不是 1.0 稳定版。
+首个公开预发布版 [**`v0.1.0-preview.5`**](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5)
+已发布，范围为现有 Android 支持加上本机 iOS Simulator。精确 CI 归档已通过溯源及
+记录的 Web／Desktop／原生检查；具体验收范围和剩余限制见
+[发布记录](docs/RELEASING.md)。npm 包继续保持私有。这是开发预览，不是 1.0 稳定版。
 
 **当前状态：已实现 Android 视频与控制，以及按设备能力启用的实验性 iOS Simulator
 视频、单指点击／拖动和 Home。** 当前本地源码构建已在
 macOS 26.7 Apple Silicon／Xcode 26.4／iOS 26.4／iPhone 17 上，
 通过原版 DSH Web `0.2.1-alpha.1` 和官方 Desktop `0.2.0-rc.2` 验证 Home、画布点击
-和可见的拖动滚动效果。这些本地源码检查不代表待验收的 preview.5 归档已经通过。该目标上的
+和可见的拖动滚动效果。来自 `31a2bdb` 的 preview.5 归档还单独通过了干净 Web／Desktop
+视频与控制、显式启动 Simulator、Pause／Resume，以及原生清理／重启检查。该目标上的
 原生输入效果，以及 Web 画布调整大小后的点击坐标也已通过验证。
 初始范围仅限正向竖屏，不支持键盘／文本／IME、多点触控、Back 或 iOS 真机。
 只有原生能力探测通过后才启用输入，否则保留只读预览。清理时会通过结束当前
@@ -26,7 +28,7 @@ iOS 手势来释放触点，因此可能完成该次点击或拖动。其他 Xco
 
 对于 Android，Rust 后端与本地 DSH 插件提供设备发现、显式启动模拟器、会话所有权、
 H.264 视频流以及单指触摸和基础
-按键输入。当前候选版已实现 **Android 10–17 / API 29–37 arm64-v8a 适配**，
+按键输入。当前发布版已实现 **Android 10–17 / API 29–37 arm64-v8a 适配**，
 需要 Unix 主机和支持 WebCodecs 的客户端。运行验收仍在进行，进入允许范围不代表
 兼容性通过。API 30–37 矩阵目标的原生采集／输入／清理已通过，其中 API 37 模拟器
 使用 16 KiB 页。原版 DSH Web 的 API 30–34 界面检查使用本地矩阵归档通过，API 35–37
@@ -59,12 +61,12 @@ API 29 模拟器环境受编码器 surface 路径问题阻塞。此前 API 32 �
 和录制不在当前范围内。MPP 参考 scrcpy 将视频与控制分离的设计，但不运行、分发
 或依赖 scrcpy，也不实现其通信协议。
 
-## 安装预览候选包
+## 安装预览发布包
 
 打包脚本会生成自带运行文件的 `.tgz`，当前面向 **macOS 14 或更新版本的 Apple Silicon DSH Host**
 并提供 **Android API 29–37 arm64-v8a 适配**，以及通过已安装 Xcode 使用本机
 **iOS Simulator** 的能力。iOS 验收限于 macOS 26.7／Xcode 26.4／iOS 26.4／iPhone 17，
-不包含 iOS 真机。`0.1.0-preview.5` 的归档身份和验收记录见
+不包含 iOS 真机。已验证的 `0.1.0-preview.5` 归档身份和具体验收范围见
 [发布检查表](docs/RELEASING.md)；此前安装包检查保留为历史证据。
 `0.1.0-preview.1` 安装包已在官方 npm DSH `0.2.1-alpha.1`
 Web 发行版的独立 profile 中通过干净安装、播放和卸载验收，未使用源码补丁、
@@ -81,8 +83,11 @@ Web profile 对应的 CLI 命令为：
 dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz
 ```
 
-`0.1.0-preview.5` 是已选定的发布候选版。请使用发布检查表中列明校验和及验收记录的
-精确归档；目前尚未确认发布完成。
+下载 [macOS Apple Silicon 归档](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz)、
+[SHA-256 文件](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz.sha256)
+和[验收记录](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/download/v0.1.0-preview.5/qualification-0.1.0-preview.5.json)。
+不可变归档与标签均使用源码提交 `31a2bdb`；本次后续文档更新不会替换安装包。
+安装前请验证校验和。
 
 安装包包含 Rust 主程序和配套的 Android bootstrap／原生库，启动时会按已安装
 插件的位置自动解析路径。使用安装包不需要设置 `MPP_EXECUTABLE`，也不需要
@@ -402,7 +407,9 @@ surface、启动、输出出队、停止和释放；这些历史探测没有验�
 manifest 均保留 `private: true`；生成本地 `.tgz` 不会发布它。MPP 采用
 [Apache-2.0](LICENSE) 许可；随包依赖保留各自的许可，记录于
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 和 `licenses/third-party/`，
-这些文件也随预览包分发。`0.1.0-preview.5` 的 GitHub Release 发布已获授权，等待最终
-归档验收；本次不包含 npm 发布。已测范围、剩余限制和发布状态见
+这些文件也随预览包分发。
+[GitHub 预发布版 `v0.1.0-preview.5`](https://github.com/mobile-dev-harness/mobile-preview-plugin/releases/tag/v0.1.0-preview.5)
+已发布，本次不包含 npm 发布。
+已测范围、剩余限制和发布状态见
 [RELEASING.md](docs/RELEASING.md)。纳入 DSH 官方分发属于未来的上游贡献目标，
 不代表目前已被内置或获得认可。这是开发预览，不是 1.0 稳定版。

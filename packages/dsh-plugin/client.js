@@ -9,20 +9,24 @@ window.__ModuleLoader__.load({
     const KIND = 'mobile-preview';
     const NS = 'mobilePreview';
     const en = {
-      title: 'Mobile devices', open: 'Connect a mobile device', guide: 'Connect an emulator or Android device',
+      title: 'Mobile devices', open: 'Connect a mobile device', guide: 'Choose a platform and connect a device',
+      platform: 'Choose a platform', platformHelp: 'Choose what you are building. Your agent can also open the matching platform for this chat.',
+      androidHelp: 'Emulators and USB devices', iosHelp: 'Xcode Simulator on macOS · Touch and Home when supported',
+      iosPending: 'iOS Simulator requires a macOS host', iosPendingHelp: 'Your iOS selection is saved for this chat. Connect to a macOS host with Xcode installed to preview a simulator.',
+      agentPlatform: 'Selected by your agent', userPlatform: 'Selected for this chat', selecting: 'Updating platform…',
       host: 'Connected host', waitingHost: 'Host not connected', hostHelp: 'Devices belong to the machine running DSH.',
       refresh: 'Refresh', refreshing: 'Refreshing…', devices: 'Choose a device', empty: 'No devices found',
-      emptyHelp: 'Connect an Android device with USB debugging enabled, or create an AVD in Android Studio, then refresh.',
+      emptyHelp: 'Connect an Android device with USB debugging enabled, or create an AVD in Android Studio, then refresh.', iosEmptyHelp: 'Create an iOS Simulator in Xcode on this macOS host, then refresh.',
       online: 'Online', offline: 'Offline', unauthorized: 'Authorization required', stopped: 'Stopped', unknown: 'Unknown',
       emulator: 'Emulator', physical: 'Physical device', simulator: 'Simulator', android: 'Android', ios: 'iOS',
       connect: 'Connect', disconnect: 'Disconnect', start: 'Start selected emulator', starting: 'Starting emulator…',
       connecting: 'Connecting…', disconnecting: 'Disconnecting…', choose: 'Select a device to connect.',
-      bootConsent: 'Starting opens the selected AVD on the connected host.',
+      bootConsent: 'Starting opens the selected AVD on the connected host.', simulatorStart: 'Start selected simulator', simulatorStarting: 'Starting simulator…', simulatorConsent: 'Starting boots the selected iOS Simulator on the connected macOS host.',
       offlineHelp: 'Reconnect the device and refresh before connecting.',
       unauthorizedHelp: 'Unlock the device and accept its USB debugging prompt, then refresh.',
       current: 'This chat’s connection', connected: 'Transport ready', disconnected: 'Disconnected',
       uncertain: 'Checking connection', retained: 'The connection stays with this chat when you switch chats or close this panel.',
-      phase: 'Android preview', previewUnavailable: 'Preview requires the configured Android capture backend and a browser with H.264 WebCodecs support.',
+      phase: 'Android preview', previewUnavailable: 'Preview requires the configured Android capture backend and a browser with H.264 WebCodecs support.', iosPhase: 'iOS Simulator preview', iosPreviewHelp: 'Requires macOS, Xcode Simulator and H.264 WebCodecs. Supported simulators allow touch, drag and Home; others provide read-only video.', iosCanvasHelp: 'Click or drag in the preview, or press Home below. Use the Simulator app for keyboard input.', readOnly: 'Read-only preview', readOnlyHelp: 'Read-only video. Use the Simulator app for touch and keyboard input.',
       diagnostics: 'Connection details', previewReady: 'Connecting to the device display…',
       previewPause: 'Pause', previewResume: 'Resume', previewRetry: 'Retry', previewPaused: 'Preview paused',
       previewStart: 'Start preview', previewStop: 'Stop preview', previewStarting: 'Starting preview…', previewBuffering: 'Waiting for a video key frame…', previewLive: 'Live preview', previewStopped: 'Preview stopped',
@@ -37,20 +41,24 @@ window.__ModuleLoader__.load({
       clientClosed: 'The device plugin has been unloaded.', unsupported: 'This device state cannot be connected.',
     };
     const zh = {
-      title: '移动设备', open: '连接移动设备', guide: '连接模拟器或 Android 真机',
+      title: '移动设备', open: '连接移动设备', guide: '选择开发平台并连接设备',
+      platform: '选择开发平台', platformHelp: '选择正在开发的平台；Agent 也可以为此聊天打开对应的平台。',
+      androidHelp: '模拟器与 USB 真机', iosHelp: 'macOS Xcode 模拟器 · 支持时可触控和回到主页',
+      iosPending: 'iOS 模拟器需要 macOS 主机', iosPendingHelp: '已为此聊天选择 iOS。请连接已安装 Xcode 的 macOS 主机来预览模拟器。',
+      agentPlatform: 'Agent 已选择平台', userPlatform: '此聊天已选择的平台', selecting: '正在切换平台…',
       host: '连接主机', waitingHost: '尚未连接主机', hostHelp: '设备位于运行 DSH 的这台主机上。',
       refresh: '刷新', refreshing: '正在刷新…', devices: '选择设备', empty: '未发现设备',
-      emptyHelp: '连接已开启 USB 调试的 Android 设备，或在 Android Studio 中创建 AVD，然后刷新。',
+      emptyHelp: '连接已开启 USB 调试的 Android 设备，或在 Android Studio 中创建 AVD，然后刷新。', iosEmptyHelp: '请在此 macOS 主机的 Xcode 中创建 iOS 模拟器，然后刷新。',
       online: '在线', offline: '离线', unauthorized: '需要授权', stopped: '未启动', unknown: '未知',
       emulator: '模拟器', physical: '真机', simulator: '模拟器', android: 'Android', ios: 'iOS',
       connect: '连接', disconnect: '断开连接', start: '启动所选模拟器', starting: '正在启动模拟器…',
       connecting: '正在连接…', disconnecting: '正在断开…', choose: '请选择要连接的设备。',
-      bootConsent: '将在连接主机上启动你选择的 AVD。',
+      bootConsent: '将在连接主机上启动你选择的 AVD。', simulatorStart: '启动所选模拟器', simulatorStarting: '正在启动模拟器…', simulatorConsent: '将在连接的 macOS 主机上启动你选择的 iOS 模拟器。',
       offlineHelp: '请重新连接设备，刷新后再连接。',
       unauthorizedHelp: '请解锁设备并确认 USB 调试授权，然后刷新。',
       current: '此聊天的连接', connected: '设备通道已就绪', disconnected: '已断开',
       uncertain: '正在核实连接', retained: '切换聊天或关闭面板后，连接仍归属此聊天。',
-      phase: 'Android 实时预览', previewUnavailable: '预览需要配置 Android 采集后端，并使用支持 H.264 WebCodecs 的浏览器。',
+      phase: 'Android 实时预览', previewUnavailable: '预览需要配置 Android 采集后端，并使用支持 H.264 WebCodecs 的浏览器。', iosPhase: 'iOS 模拟器预览', iosPreviewHelp: '需要 macOS、Xcode 模拟器和 H.264 WebCodecs。支持的模拟器可点击、拖动和回到主页；其他模拟器提供只读画面。', iosCanvasHelp: '在预览中点击或拖动，或点击下方主页按钮。键盘输入请使用模拟器应用。', readOnly: '只读预览', readOnlyHelp: '只读画面，请在模拟器应用中进行触控和键盘输入。',
       diagnostics: '连接详情', previewReady: '正在连接设备画面…',
       previewPause: '暂停', previewResume: '继续', previewRetry: '重试', previewPaused: '预览已暂停',
       previewStart: '开始预览', previewStop: '停止预览', previewStarting: '正在启动预览…', previewBuffering: '正在等待视频关键帧…', previewLive: '实时预览', previewStopped: '预览已停止',
@@ -222,6 +230,9 @@ window.__ModuleLoader__.load({
             const bytes = packet.bytes.subarray(8), nals = annexBNals(bytes);
             const sps = nals.find(nal => (nal[0] & 31) === 7);
             if (!sps || sps.length < 4 || !nals.some(nal => (nal[0] & 31) === 8)) throw localError('mediaInvalid');
+            // Encoders may repeat SPS/PPS before every IDR; keep pending decoded frames alive.
+            if (decoder?.state === 'configured' && codecBytes?.length === bytes.length
+              && bytes.every((value, index) => value === codecBytes[index])) return;
             const current = ++epoch;
             closeDecoder(); clear(); needsKey = true; state('buffering');
             const codec = 'avc1.' + [...sps.subarray(1, 4)].map(value => value.toString(16).padStart(2, '0')).join('');
@@ -313,7 +324,7 @@ window.__ModuleLoader__.load({
         key(code) { enqueue({ kind: 'input', event: { kind: 'key', code, phase: 'down' } }); enqueue({ kind: 'input', event: { kind: 'key', code, phase: 'up' } }); } };
     }
 
-    function bindCanvasInput(canvas, geometry, input, enabled) {
+    function bindCanvasInput(canvas, geometry, input, enabled, { keyboard = true } = {}) {
       let pointer = null, last = { x: 0, y: 0 };
       const pressed = new Set();
       const listeners = [];
@@ -350,27 +361,32 @@ window.__ModuleLoader__.load({
         if (canvas.hasPointerCapture?.(captured)) canvas.releasePointerCapture(captured);
       });
       for (const name of ['pointercancel', 'lostpointercapture', 'pointerleave']) listen(canvas, name, event => { if (event.pointerId === pointer) reset(); });
-      const codes = { ArrowUp: 19, ArrowDown: 20, ArrowLeft: 21, ArrowRight: 22, Enter: 66, Backspace: 67, Tab: 61, ' ': 62 };
-      listen(canvas, 'keydown', event => {
-        const code = codes[event.key]; if (!enabled() || !code || event.altKey || event.ctrlKey || event.metaKey) return;
-        event.preventDefault(); if (event.repeat || pressed.has(code)) return;
-        pressed.add(code); input.enqueue({ kind: 'input', event: { kind: 'key', code, phase: 'down' } });
-      });
-      listen(canvas, 'keyup', event => {
-        const code = codes[event.key]; if (!pressed.delete(code)) return;
-        event.preventDefault(); input.enqueue({ kind: 'input', event: { kind: 'key', code, phase: 'up' } });
-      });
+      if (keyboard) {
+        const codes = { ArrowUp: 19, ArrowDown: 20, ArrowLeft: 21, ArrowRight: 22, Enter: 66, Backspace: 67, Tab: 61, ' ': 62 };
+        listen(canvas, 'keydown', event => {
+          const code = codes[event.key]; if (!enabled() || !code || event.altKey || event.ctrlKey || event.metaKey) return;
+          event.preventDefault(); if (event.repeat || pressed.has(code)) return;
+          pressed.add(code); input.enqueue({ kind: 'input', event: { kind: 'key', code, phase: 'down' } });
+        });
+        listen(canvas, 'keyup', event => {
+          const code = codes[event.key]; if (!pressed.delete(code)) return;
+          event.preventDefault(); input.enqueue({ kind: 'input', event: { kind: 'key', code, phase: 'up' } });
+        });
+      }
       listen(canvas, 'blur', reset); listen(window, 'blur', reset);
       const detach = () => { reset(); for (const remove of listeners) remove(); };
       detach.reset = reset;
       return detach;
     }
 
-    function createController() {
+    function createController({ mountedSession, openPlatform }) {
       const source = createSnapshotStore({ host: null, devices: [], warnings: [], error: null, sessions: {} });
       const bindings = new Map();
       const previews = new Map();
       const previewIntents = new Map();
+      const platformReads = new Map();
+      const platformVersions = new Map();
+      const handledIntents = new Map();
       let pageVisible = document.visibilityState !== 'hidden';
       const pending = new Set();
       let client = null;
@@ -389,7 +405,62 @@ window.__ModuleLoader__.load({
       const patch = update => source.update(update);
       const row = (state, sessionId) => state.sessions[sessionId] ??= {
         binding: null, session: null, busy: null, error: null, notice: null, verified: false, preview: null, previewWanted: false,
+        platform: null, platformSource: null, platformRevision: null, platformEpoch: null, platformAvailable: false, platformError: null,
       };
+
+      function applyPlatform(sessionId, result) {
+        if (result?.sessionId !== sessionId || ![null, 'android', 'ios'].includes(result.platform)
+          || ![null, 'user', 'agent'].includes(result.source) || (result.platform === null) !== (result.source === null)
+          || !Number.isSafeInteger(result.revision) || result.revision < 0
+          || typeof result.epoch !== 'string' || !result.epoch || typeof result.available !== 'boolean') {
+          throw localError('invalidResponse');
+        }
+        const previous = source.getSnapshot().sessions[sessionId];
+        if (previous?.platformEpoch === result.epoch && previous.platformRevision > result.revision) return;
+        patch(state => Object.assign(row(state, sessionId), {
+          platform: result.platform, platformSource: result.source, platformRevision: result.revision,
+          platformEpoch: result.epoch, platformAvailable: result.available, platformError: null,
+        }));
+      }
+
+      function openAgentPlatform(sessionId) {
+        if (closed || !pageVisible || document.visibilityState === 'hidden' || mountedSession() !== sessionId) return;
+        const selection = source.getSnapshot().sessions[sessionId];
+        if (selection?.platformSource !== 'agent') return;
+        const key = `${selection.platformEpoch}:${selection.platformRevision}`;
+        if (handledIntents.get(sessionId) === key) return;
+        if (openPlatform(sessionId)) handledIntents.set(sessionId, key);
+      }
+
+      async function readPlatform(sessionId) {
+        if (!sessionId || closed || source.getSnapshot().sessions[sessionId]?.busy === 'selecting') return;
+        if (platformReads.has(sessionId)) return platformReads.get(sessionId);
+        const version = (platformVersions.get(sessionId) || 0) + 1;
+        platformVersions.set(sessionId, version);
+        const job = call('platform.get', { sessionId }).then(result => {
+          if (closed || platformVersions.get(sessionId) !== version) return;
+          applyPlatform(sessionId, result);
+          openAgentPlatform(sessionId);
+        });
+        platformReads.set(sessionId, job);
+        try { await job; }
+        finally { if (platformReads.get(sessionId) === job) platformReads.delete(sessionId); }
+      }
+
+      async function pollPlatform() {
+        if (closed || !pageVisible || document.visibilityState === 'hidden') return;
+        const sessionId = mountedSession();
+        if (!sessionId) return;
+        try { await readPlatform(sessionId); }
+        catch (error) {
+          if (!closed && mountedSession() === sessionId) {
+            if (error?.code === 'CLIENT_EXPIRED') expire('expired');
+            patch(state => { row(state, sessionId).platformError = errorInfo(error); });
+          }
+        }
+      }
+      const platformTimer = setInterval(() => { void pollPlatform(); }, 2000);
+      queueMicrotask(() => { void pollPlatform(); });
 
       async function request(method, params, options = {}) {
         if (closed) throw localError('clientClosed');
@@ -399,7 +470,7 @@ window.__ModuleLoader__.load({
         options.signal?.addEventListener('abort', cancel, { once: true });
         if (options.signal?.aborted) abort.abort();
         const timer = setTimeout(() => abort.abort(),
-          options.timeoutMs ?? ((method === 'emulator.start' ? bootTimeout : method === 'preview.start' || method === 'preview.stop' ? previewTimeout : requestTimeout) + networkMargin));
+          options.timeoutMs ?? ((['emulator.start', 'simulator.start'].includes(method) ? bootTimeout : method === 'preview.start' || method === 'preview.stop' ? previewTimeout : requestTimeout) + networkMargin));
         try {
           const response = await fetch('api/mobile-preview/v1', {
             method: 'POST', credentials: 'same-origin',
@@ -521,10 +592,14 @@ window.__ModuleLoader__.load({
         if (changed) void reconcilePreview(sessionId);
       }
 
-      async function inventory() {
-        const result = await call('devices.list', {});
+      async function inventory(platform) {
+        const result = await call('devices.list', { platform });
         if (!Array.isArray(result?.devices) || !Array.isArray(result.warnings)) throw localError('invalidResponse');
-        patch(state => { state.devices = result.devices; state.warnings = result.warnings; state.error = null; });
+        patch(state => {
+          state.devices = [...state.devices.filter(device => device.platform !== platform),
+            ...result.devices.filter(device => device.platform === platform)];
+          state.warnings = result.warnings; state.error = null;
+        });
       }
 
       async function run(sessionId, operation, work) {
@@ -537,10 +612,13 @@ window.__ModuleLoader__.load({
       }
 
       const activate = sessionId => run(sessionId, 'refreshing', async () => {
-        await inventory();
+        await readPlatform(sessionId);
         const result = await call('session.list', { sessionId });
         if (result) accept(sessionId, result);
         else if (bindings.has(sessionId)) forget(sessionId, 'stale');
+        const selection = source.getSnapshot().sessions[sessionId];
+        const platform = selection?.platform || result?.session?.device?.platform;
+        if (platform && (selection?.platformAvailable || result?.session?.device?.platform === platform)) await inventory(platform);
       });
 
       async function revalidate(token, current) {
@@ -620,7 +698,7 @@ window.__ModuleLoader__.load({
       function previewState(sessionId, runtime, status, error = null) {
         if (!runtimeCurrent(sessionId, runtime)) return;
         runtime.status = status;
-        patch(state => { row(state, sessionId).preview = { status, error, geometry: runtime.descriptor?.geometry || null }; });
+        patch(state => { row(state, sessionId).preview = { status, error, geometry: runtime.descriptor?.geometry || null, capabilities: runtime.descriptor?.capabilities || null }; });
       }
 
       function quiescePreview(runtime) {
@@ -636,6 +714,7 @@ window.__ModuleLoader__.load({
             if (item.binding === runtime.binding) item.preview = {
               status: intent.error ? 'error' : intent.wanted ? 'starting' : 'stopped',
               error: intent.error, geometry: item.preview?.geometry || runtime.descriptor?.geometry || null,
+              capabilities: runtime.descriptor?.capabilities || item.preview?.capabilities || null,
             };
           });
         }
@@ -646,7 +725,9 @@ window.__ModuleLoader__.load({
         const intent = intentFor(sessionId);
         intent.blocked = true; intent.error = errorInfo(error);
         quiescePreview(runtime);
-        patch(state => { const item = row(state, sessionId); item.preview = { status: 'error', error: intent.error, geometry: item.preview?.geometry || runtime.descriptor?.geometry || null }; });
+        patch(state => { const item = row(state, sessionId); item.preview = { status: 'error', error: intent.error,
+          geometry: item.preview?.geometry || runtime.descriptor?.geometry || null,
+          capabilities: runtime.descriptor?.capabilities || item.preview?.capabilities || null }; });
         void reconcilePreview(sessionId);
       }
 
@@ -673,6 +754,7 @@ window.__ModuleLoader__.load({
             if (item.binding === runtime.binding) item.preview = {
               status: intent.error ? 'error' : 'stopped', error: intent.error,
               geometry: item.preview?.geometry || runtime.descriptor?.geometry || null,
+              capabilities: runtime.descriptor?.capabilities || item.preview?.capabilities || null,
             };
           });
         }
@@ -698,7 +780,7 @@ window.__ModuleLoader__.load({
             || descriptor.generation !== source.getSnapshot().sessions[sessionId]?.session?.generation
             || !geometry || !['width', 'height', 'display_width', 'display_height'].every(key => safePositive(geometry[key]) && geometry[key] <= 16384)
             || geometry.width > 4096 || geometry.height > 4096 || !Number.isInteger(geometry.rotation) || geometry.rotation < 0 || geometry.rotation > 3
-            || descriptor.capabilities?.video !== true) throw localError('invalidResponse');
+            || descriptor.capabilities?.video !== true || typeof descriptor.capabilities.input !== 'boolean') throw localError('invalidResponse');
           const failPreview = error => { if (current()) failRuntime(sessionId, runtime, error?.key || error?.code ? error : localError('mediaInvalid')); };
           runtime.input = createInputQueue(descriptor.epoch,
             requests => request('input.send', { client: runtime.client, binding, stream: descriptor.stream, requests }, { timeoutMs: 1500 }),
@@ -716,8 +798,11 @@ window.__ModuleLoader__.load({
             },
             keyFrame: () => runtime.input.enqueue({ kind: 'key_frame' }), failed: failPreview,
           });
-          runtime.detach = bindCanvasInput(canvas, geometry, runtime.input,
-            () => current() && runtime.status === 'live' && descriptor.capabilities.input === true);
+          const device = source.getSnapshot().sessions[sessionId]?.session?.device;
+          if (descriptor.capabilities.input === true) {
+            runtime.detach = bindCanvasInput(canvas, geometry, runtime.input,
+              () => current() && runtime.status === 'live', { keyboard: device?.platform !== 'ios' });
+          }
           previewState(sessionId, runtime, 'buffering');
           runtime.frameDeadline = setTimeout(() => failPreview(localError('streamEnded')), 10000);
           const parser = createMediaParser(descriptor.generation);
@@ -829,7 +914,7 @@ window.__ModuleLoader__.load({
             void reconcilePreview(id);
           }
         }
-        if (visible) void heartbeat();
+        if (visible) { void heartbeat(); void pollPlatform(); }
       }
       const wake = () => visibility(document.visibilityState !== 'hidden');
       const hidePage = () => visibility(false);
@@ -838,8 +923,21 @@ window.__ModuleLoader__.load({
       window.addEventListener('pagehide', hidePage);
       return {
         source,
-        activate, startPreview, stopPreview, stopAllPreviews, mountPreview, pausePreview, resumePreview,
-        pressKey: (sessionId, code) => { const runtime = previews.get(sessionId); if (runtime && runtimeCurrent(sessionId, runtime) && runtime.status === 'live' && runtime.descriptor.capabilities.input === true) runtime.input.key(code); },
+        activate, pollPlatform, startPreview, stopPreview, stopAllPreviews, mountPreview, pausePreview, resumePreview,
+        selectPlatform: (sessionId, platform) => run(sessionId, 'selecting', async () => {
+          const version = (platformVersions.get(sessionId) || 0) + 1;
+          platformVersions.set(sessionId, version);
+          const result = await call('platform.select', { sessionId, platform });
+          if (platformVersions.get(sessionId) !== version) return;
+          applyPlatform(sessionId, result);
+          if (result.available) await inventory(result.platform);
+        }),
+        pressKey: (sessionId, code) => {
+          const runtime = previews.get(sessionId);
+          const ios = source.getSnapshot().sessions[sessionId]?.session?.device?.platform === 'ios';
+          if (runtime && runtimeCurrent(sessionId, runtime) && runtime.status === 'live'
+            && runtime.descriptor.capabilities.input === true && (!ios || code === 3)) runtime.input.key(code);
+        },
         connect: (sessionId, device) => run(sessionId, 'connecting', async () => {
           accept(sessionId, await call('session.connect', { sessionId, device }));
         }),
@@ -851,7 +949,12 @@ window.__ModuleLoader__.load({
         }),
         start: (sessionId, avd) => run(sessionId, 'starting', async () => {
           const device = await call('emulator.start', { avd, consent: true });
-          await inventory();
+          await inventory('android');
+          return device;
+        }),
+        startSimulator: (sessionId, udid) => run(sessionId, 'starting', async () => {
+          const device = await call('simulator.start', { udid, consent: true });
+          await inventory('ios');
           return device;
         }),
         close() {
@@ -861,6 +964,7 @@ window.__ModuleLoader__.load({
           closed = true;
           generation += 1;
           clearInterval(timer);
+          clearInterval(platformTimer);
           document.removeEventListener('visibilitychange', wake);
           window.removeEventListener('pageshow', wake);
           window.removeEventListener('pagehide', hidePage);
@@ -972,11 +1076,14 @@ window.__ModuleLoader__.load({
       };
     }
 
-    function Panel({ sessionId, usePreview, useTabInfo, activate, connect, disconnect, start, mountPreview, pausePreview, resumePreview, pressKey, beginWidthFit, t }) {
+    function Panel({ sessionId, usePreview, useTabInfo, activate, selectPlatform, connect, disconnect, start, startSimulator, mountPreview, pausePreview, resumePreview, pressKey, beginWidthFit, t }) {
       const state = usePreview(value => value);
       const { tab, sidebar, panel } = useTabInfo();
       const session = state.sessions[sessionId];
-      const [selected, setSelected] = React.useState('');
+      const [choice, setChoice] = React.useState(null);
+      const platform = session?.platform;
+      const selected = choice?.sessionId === sessionId && choice.platform === platform ? choice.id : '';
+      const setSelected = id => setChoice({ sessionId, platform, id });
       const canvas = React.useRef(null);
       const section = React.useRef(null);
       const viewport = React.useRef(null);
@@ -1017,20 +1124,24 @@ window.__ModuleLoader__.load({
       }, [connected, preview?.geometry?.width, preview?.geometry?.height]);
       React.useEffect(() => {
         if (tab.visible && !tab.signal.aborted) void activate();
-      }, [sessionId, tab.visible, tab.signal, activate]);
+      }, [sessionId, tab.visible, tab.signal, platform, activate]);
       React.useEffect(() => {
         if (!connected || !tab.visible || tab.signal.aborted || !canvas.current || typeof mountPreview !== 'function') return;
         return mountPreview(canvas.current, tab.signal);
       }, [sessionId, session?.binding, connected, tab.visible, tab.signal, mountPreview]);
-      const device = state.devices.find(item => item.id === selected);
+      const devices = session?.platformAvailable ? state.devices.filter(item => item.platform === platform) : [];
+      const device = devices.find(item => item.id === selected);
       const busy = Boolean(session?.busy);
       const selectedState = ['online', 'offline', 'unauthorized', 'stopped'].includes(device?.state) ? device.state : 'unknown';
-      const error = session?.error || state.error;
+      const error = session?.error || session?.platformError || state.error;
       const text = key => t(key);
       if (connected) {
         const previewStatus = !wanted ? 'previewPaused' : preview?.status === 'starting' ? 'previewStarting'
           : preview?.status === 'buffering' ? 'previewBuffering' : live ? 'previewLive' : 'previewStopped';
         const connection = session.session.device;
+        const ios = connection.platform === 'ios';
+        const interactive = preview?.capabilities?.input ?? (ios ? connection.capabilities?.input === true : true);
+        const canvasHelp = interactive ? ios ? 'iosCanvasHelp' : 'canvasHelp' : 'readOnlyHelp';
         return h('section', { ref: section, style: { ...styles.panel, gap: 10, padding: 12, minHeight: 0, overflow: 'hidden' },
           'aria-label': text('title'), 'data-mobile-preview': '', 'data-mobile-preview-connected': '' },
           h('div', { style: { ...styles.stack, gap: 4, flexShrink: 0 } },
@@ -1038,7 +1149,8 @@ window.__ModuleLoader__.load({
               h('h2', { style: { ...styles.heading, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: connection.name }, connection.name),
               h(Button, { size: 'sm', variant: 'ghost', disabled: busy, onClick: () => { void disconnect(); } }, text(session.busy === 'disconnecting' ? 'disconnecting' : 'disconnect'))),
             h('div', { style: { ...styles.row, ...styles.muted, justifyContent: 'flex-start', gap: 6 } },
-              h(StateDot, { state: session.verified ? 'done' : 'warning' }), text(session.verified ? 'connected' : 'uncertain')),
+              h(StateDot, { state: session.verified ? 'done' : 'warning' }), text(session.verified ? 'connected' : 'uncertain'),
+              h('span', { style: { marginLeft: 'auto', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 4, padding: '1px 5px' } }, text(connection.platform === 'ios' ? 'ios' : 'android'))),
             h('p', { style: { ...styles.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: state.host || '' }, `${text('host')}: ${state.host || text('waitingHost')}`)),
           error || preview?.error ? h('div', { style: { flexShrink: 0, maxHeight: 90, overflow: 'auto' } },
             h(ErrorMessage, { error: preview?.error || error, t })) : null,
@@ -1054,17 +1166,17 @@ window.__ModuleLoader__.load({
               ...[{ side: 'left', top: '17%', height: 23 }, { side: 'left', top: '23%', height: 37 }, { side: 'right', top: '25%', height: 45 }].map((button, index) =>
                 h('div', { key: index, 'aria-hidden': true, style: { position: 'absolute', [button.side]: -4, top: button.top, width: 3, height: button.height, borderRadius: 2, background: 'linear-gradient(90deg, #25282f, #5b6069)', pointerEvents: 'none' } })),
               h('div', { 'data-mobile-preview-screen': '', style: { position: 'relative', width: '100%', height: '100%', overflow: 'hidden', borderRadius: 18, background: '#000' } },
-                h('canvas', { ref: canvas, tabIndex: 0, 'aria-label': text('canvasHelp'),
-                  style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', touchAction: 'none' } }),
+                h('canvas', { ref: canvas, tabIndex: interactive ? 0 : -1, 'aria-label': text(canvasHelp),
+                  style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'block', touchAction: interactive ? 'none' : 'auto' } }),
                 !live ? h('div', { style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, color: '#c4c4c4', textAlign: 'center', fontSize: 12, lineHeight: 1.6, pointerEvents: 'none' } },
                   text(previewActive ? previewStatus : !wanted ? 'previewPaused' : preview?.error ? 'previewStopped' : 'previewReady')) : null))),
           h('div', { 'data-mobile-preview-controls': '', style: { ...styles.stack, flexShrink: 0, gap: 8 } },
             h('p', { role: 'status', style: { ...styles.muted, display: 'flex', alignItems: 'center', gap: 6 } },
               h(StateDot, { state: live ? 'done' : 'idle' }), text(previewStatus)),
             h('div', { style: styles.row },
-              h('div', { style: { ...styles.row, justifyContent: 'flex-start', gap: 6 } },
+              interactive ? h('div', { style: { ...styles.row, justifyContent: 'flex-start', gap: 6 } },
                 h(Button, { size: 'sm', disabled: !live, onClick: () => pressKey(3) }, text('home')),
-                h(Button, { size: 'sm', disabled: !live, onClick: () => pressKey(4) }, text('back'))),
+                !ios ? h(Button, { size: 'sm', disabled: !live, onClick: () => pressKey(4) }, text('back')) : null) : h('span', { style: styles.muted }, text('readOnly')),
               h(Button, { size: 'sm', variant: wanted && !preview?.error ? 'outline' : 'primary', disabled: busy,
                 onClick: () => { void (wanted && !preview?.error ? pausePreview() : resumePreview()); } },
               text(preview?.error && wanted ? 'previewRetry' : wanted ? 'previewPause' : 'previewResume')))),
@@ -1073,7 +1185,7 @@ window.__ModuleLoader__.load({
             h('div', { style: { ...styles.stack, paddingTop: 8 } },
               h('code', { style: styles.detail }, connection.serial || connection.avd || connection.id),
               h('p', { style: styles.muted }, text('retained')),
-              h('p', { style: styles.muted }, text('canvasHelp')),
+              h('p', { style: styles.muted }, text(canvasHelp)),
               h('p', { style: styles.muted }, text('hostHelp')),
               state.warnings.length ? h('ul', { style: { margin: 0, paddingLeft: 18 } },
                 state.warnings.map((warning, index) => h('li', { key: index }, warning))) : null,
@@ -1082,19 +1194,36 @@ window.__ModuleLoader__.load({
       return h('section', { ref: section, style: styles.panel, 'aria-label': text('title'), 'data-mobile-preview': '' },
         h('div', { style: styles.stack },
           h('div', { style: styles.row }, h('h2', { style: styles.heading }, text('title')),
-            h(Button, { size: 'sm', variant: 'ghost', disabled: busy, onClick: () => { void activate(); } }, text(session?.busy === 'refreshing' ? 'refreshing' : 'refresh'))),
-          h('div', { style: { ...styles.card, ...styles.stack } },
-            h('span', { style: styles.muted }, text('host')),
-            h('strong', { style: { overflowWrap: 'anywhere' } }, state.host || text('waitingHost')),
-            h('p', { style: styles.muted }, text('hostHelp')))),
+            session?.platformAvailable ? h(Button, { size: 'sm', variant: 'ghost', disabled: busy, onClick: () => { void activate(); } }, text(session?.busy === 'refreshing' ? 'refreshing' : 'refresh')) : null),
+          h('p', { style: styles.muted }, text('platformHelp'))),
+        h('fieldset', { style: { ...styles.stack, border: 0, margin: 0, padding: 0, minWidth: 0 }, disabled: busy || !sessionId },
+          h('legend', { style: { ...styles.heading, marginBottom: 10 } }, text('platform')),
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 } },
+            ['android', 'ios'].map(value => h('label', { key: value, style: { ...styles.card, ...styles.stack, gap: 10,
+              cursor: busy ? 'default' : 'pointer', minWidth: 0,
+              borderColor: platform === value ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-border-l2)' } },
+            h('div', { style: { ...styles.row, justifyContent: 'flex-start' } },
+              h('input', { type: 'radio', name: `mobile-platform-${sessionId}`, value, checked: platform === value,
+                onChange: () => { if (platform !== value) void selectPlatform(value); }, style: { margin: 0 } }),
+              h('strong', null, text(value))),
+            h('span', { style: { ...styles.muted, overflowWrap: 'anywhere' } }, text(value === 'ios' ? 'iosHelp' : 'androidHelp'))))),
+          session?.platformSource ? h('p', { role: 'status', style: styles.muted },
+            text(session.busy === 'selecting' ? 'selecting' : session.platformSource === 'agent' ? 'agentPlatform' : 'userPlatform')) : null),
         h(ErrorMessage, { error, t }),
         session?.notice && session.notice !== 'disconnected'
           ? h('p', { role: 'status', style: styles.muted }, text(session.notice)) : null,
-        h('fieldset', { style: { ...styles.stack, border: 0, margin: 0, padding: 0, minWidth: 0 }, disabled: busy },
+        platform === 'ios' && !session?.platformAvailable ? h('div', { style: { ...styles.card, ...styles.stack }, role: 'status' },
+          h('strong', null, text('iosPending')), h('p', { style: styles.muted }, text('iosPendingHelp'))) : null,
+        session?.platformAvailable ? h(React.Fragment, null,
+          h('div', { style: { ...styles.card, ...styles.stack } },
+            h('span', { style: styles.muted }, text('host')),
+            h('strong', { style: { overflowWrap: 'anywhere' } }, state.host || text('waitingHost')),
+            h('p', { style: styles.muted }, text('hostHelp'))),
+          h('fieldset', { style: { ...styles.stack, border: 0, margin: 0, padding: 0, minWidth: 0 }, disabled: busy },
           h('legend', { style: { ...styles.heading, marginBottom: 10 } }, text('devices')),
-          state.devices.length === 0 ? h('div', { style: { ...styles.card, ...styles.stack } },
-            h('strong', null, text('empty')), h('p', { style: styles.muted }, text('emptyHelp'))) :
-            state.devices.map(item => {
+          devices.length === 0 ? h('div', { style: { ...styles.card, ...styles.stack } },
+            h('strong', null, text('empty')), h('p', { style: styles.muted }, text(platform === 'ios' ? 'iosEmptyHelp' : 'emptyHelp'))) :
+            devices.map(item => {
               const status = ['online', 'offline', 'unauthorized', 'stopped'].includes(item.state) ? item.state : 'unknown';
               const kind = ['emulator', 'physical', 'simulator'].includes(item.kind) ? item.kind : 'unknown';
               return h('label', { key: item.id, style: { ...styles.card, display: 'flex', alignItems: 'flex-start', gap: 10, cursor: busy ? 'default' : 'pointer', borderColor: selected === item.id ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-border-l2)' } },
@@ -1106,27 +1235,32 @@ window.__ModuleLoader__.load({
                   h('code', { style: styles.detail }, item.serial || item.avd || item.id)));
             })),
         h('div', { style: styles.stack },
-          device?.state === 'stopped' && device.avd
+          device?.state === 'stopped' && (device.avd || (device.platform === 'ios' && device.kind === 'simulator' && device.serial))
             ? h(React.Fragment, null,
               h(Button, { variant: 'primary', disabled: busy, onClick: () => {
-                void start(device.avd).then(result => { if (result) setSelected(result.id); });
-              } }, text(session?.busy === 'starting' ? 'starting' : 'start')),
-              h('p', { style: styles.muted }, text('bootConsent')))
+                void (device.platform === 'ios' ? startSimulator(device.serial) : start(device.avd)).then(result => { if (result) setSelected(result.id); });
+              } }, text(device.platform === 'ios' ? session?.busy === 'starting' ? 'simulatorStarting' : 'simulatorStart' : session?.busy === 'starting' ? 'starting' : 'start')),
+              h('p', { style: styles.muted }, text(device.platform === 'ios' ? 'simulatorConsent' : 'bootConsent')))
             : h(React.Fragment, null,
               h(Button, { variant: 'primary', disabled: busy || selectedState !== 'online', onClick: () => { void connect(selected); } }, text(session?.busy === 'connecting' ? 'connecting' : 'connect')),
               h('p', { style: styles.muted }, text(!device ? 'choose' : selectedState === 'unauthorized' ? 'unauthorizedHelp' : selectedState === 'offline' ? 'offlineHelp' : selectedState === 'online' ? 'retained' : 'unsupported')))),
         state.warnings.length ? h('details', { style: styles.muted }, h('summary', null, text('warnings')),
           h('ul', { style: { paddingLeft: 18 } }, state.warnings.map((warning, index) => h('li', { key: index }, warning)))) : null,
         h('div', { style: { ...styles.stack, marginTop: 'auto', paddingTop: 16, borderTop: '1px solid var(--dsw-alias-border-l2)' } },
-          h('strong', { style: { fontSize: 12 } }, text('phase')), h('p', { style: styles.muted }, text('previewUnavailable'))));
+          h('strong', { style: { fontSize: 12 } }, text(platform === 'ios' ? 'iosPhase' : 'phase')), h('p', { style: styles.muted }, text(platform === 'ios' ? 'iosPreviewHelp' : 'previewUnavailable')))) : null);
     }
 
     function apply(ctx) {
-      const controller = createController();
+      const open = sessionId => {
+        if (!sessionId || ctx.sidebarRight.mounted.getSnapshot() !== sessionId) return false;
+        return ctx.sidebarRight.openTab(KIND) !== false;
+      };
+      const controller = createController({ mountedSession: () => ctx.sidebarRight.mounted.getSnapshot(), openPlatform: open });
       const injectedBySession = new Map();
       const beginWidthFit = config => createWidthFit(typeof ctx.layout?.requestRightbarWidth === 'function'
         ? width => ctx.layout.requestRightbarWidth(width) : null, config);
       ctx.effect(() => () => controller.close(), 'mobile-preview.lifecycle');
+      ctx.effect(() => ctx.sidebarRight.mounted.subscribe?.(() => { void controller.pollPlatform(); }), 'mobile-preview.platform-selection');
       ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'mobile-preview.locale');
       const t = ctx.locale.bind(NS);
       ctx.effect(() => ctx.sidebarRightTabs.register({ id: ID, kind: KIND, keepMounted: true,
@@ -1136,9 +1270,6 @@ window.__ModuleLoader__.load({
         // Stop capture and release pressed input, while keeping the chat-owned lease.
         void controller.stopPreview(sessionId);
       }), 'mobile-preview.close-handler');
-      const open = sessionId => {
-        if (sessionId && ctx.sidebarRight.mounted.getSnapshot() === sessionId) ctx.sidebarRight.openTab(KIND);
-      };
       for (const name of ['conversation.session.header.utilities', 'conversation.input.left']) {
         ctx.effect(() => ctx.slots.inject(name, () => ctx.slots.register({
           name, id: ID, order: 35, locale: NS, inject: () => ({ open }),
@@ -1150,9 +1281,11 @@ window.__ModuleLoader__.load({
           if (!injectedBySession.has(sessionId)) injectedBySession.set(sessionId, {
             hooks: { preview: controller.source },
             activate: () => controller.activate(sessionId),
+            selectPlatform: platform => controller.selectPlatform(sessionId, platform),
             connect: device => controller.connect(sessionId, device),
             disconnect: () => controller.disconnect(sessionId),
             start: avd => controller.start(sessionId, avd),
+            startSimulator: udid => controller.startSimulator(sessionId, udid),
             startPreview: canvas => controller.startPreview(sessionId, canvas),
             stopPreview: () => controller.stopPreview(sessionId),
             mountPreview: (canvas, signal) => controller.mountPreview(sessionId, canvas, signal),

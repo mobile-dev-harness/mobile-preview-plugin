@@ -1,7 +1,8 @@
 //! Local control plane. Each process owns its leases; stdout contains protocol messages only.
 
 use mpp_android::Android;
-use mpp_core::{Error, InputEvent, LeaseManager, Result, Session};
+use mpp_core::{Device, Error, InputEvent, Inventory, LeaseManager, Platform, Result, Session};
+use mpp_ios::Ios;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
@@ -110,6 +111,19 @@ struct Boot {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct BootSimulator {
+    udid: String,
+    consent: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ListDevices {
+    platform: Option<Platform>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PreviewStart {
     owner: String,
     session: String,
@@ -125,7 +139,7 @@ struct PreviewStart {
 }
 
 impl PreviewStart {
-    fn options(self) -> Result<PreviewOptions> {
+    fn options(self, platform: Platform) -> Result<PreviewOptions> {
         if self.bootstrap.is_none()
             && self.library.is_none()
             && self.socket_dir.is_none()
@@ -133,16 +147,20 @@ impl PreviewStart {
             && self.token.is_none()
         {
             return Err(Error::Unsupported {
-                feature: "live preview requires configured Android device assets".into(),
+                feature: "live preview requires configured private preview channels".into(),
+            });
+        }
+        if platform == Platform::Android && (self.bootstrap.is_none() || self.library.is_none()) {
+            return Err(Error::InvalidArgument {
+                message: "Android preview.start requires bootstrap and library".into(),
             });
         }
         let missing = || Error::InvalidArgument {
-            message: "preview.start requires bootstrap, library, socket_dir, stream_id and token"
-                .into(),
+            message: "preview.start requires socket_dir, stream_id and token".into(),
         };
         Ok(PreviewOptions {
-            bootstrap: self.bootstrap.ok_or_else(missing)?,
-            library: self.library.ok_or_else(missing)?,
+            bootstrap: self.bootstrap,
+            library: self.library,
             socket_dir: self.socket_dir.ok_or_else(missing)?,
             stream_id: self.stream_id.ok_or_else(missing)?,
             token: self.token.ok_or_else(missing)?,
@@ -176,17 +194,96 @@ pub fn value<T: Serialize>(data: T) -> Result<Value> {
 }
 
 pub struct Host {
-    android: Android,
+    android: Option<Android>,
+    ios: Option<Ios>,
     leases: LeaseManager,
     previews: PreviewManager,
 }
 
 impl Host {
     pub fn new(android: Android) -> Self {
+        Self::with_backends(Some(android), None)
+    }
+
+    pub fn with_backends(android: Option<Android>, ios: Option<Ios>) -> Self {
         Self {
             android,
+            ios,
             leases: LeaseManager::new(),
             previews: PreviewManager::default(),
+        }
+    }
+
+    pub async fn inventory(&self, platform: Option<Platform>) -> Result<Inventory> {
+        let mut inventory = Inventory::default();
+        if platform != Some(Platform::Ios) {
+            match &self.android {
+                Some(android) => match android.inventory().await {
+                    Ok(mut found) => {
+                        inventory.devices.append(&mut found.devices);
+                        inventory.warnings.append(&mut found.warnings);
+                    }
+                    Err(error) => inventory.warnings.push(format!("Android discovery failed: {error}; {}", error.hint())),
+                },
+                None => inventory.warnings.push("Android SDK tools are unavailable; install the SDK or configure --adb to discover Android devices.".into()),
+            }
+        }
+        if platform != Some(Platform::Android) {
+            match &self.ios {
+                Some(ios) => match ios.inventory().await {
+                    Ok(mut found) => {
+                        inventory.devices.append(&mut found.devices);
+                        inventory.warnings.append(&mut found.warnings);
+                    }
+                    Err(error) => inventory.warnings.push(format!("iOS Simulator discovery failed: {error}; {}", error.hint())),
+                },
+                None => inventory.warnings.push("iOS Simulator tools are unavailable; use macOS with Xcode and select its developer directory with xcode-select.".into()),
+            }
+        }
+        Ok(inventory)
+    }
+
+    async fn probe(&self, device: &Device) -> Result<Device> {
+        let serial = device
+            .serial
+            .as_deref()
+            .ok_or_else(|| Error::InvalidArgument {
+                message: "device is not running; explicitly start it before connecting".into(),
+            })?;
+        match device.platform {
+            Platform::Android => {
+                self.android
+                    .as_ref()
+                    .ok_or_else(|| missing_backend("Android SDK"))?
+                    .probe(serial)
+                    .await
+            }
+            Platform::Ios => {
+                self.ios
+                    .as_ref()
+                    .ok_or_else(|| missing_backend("Xcode Simulator"))?
+                    .probe(serial)
+                    .await
+            }
+        }
+    }
+
+    async fn platform_inventory(&self, platform: Platform) -> Result<Inventory> {
+        match platform {
+            Platform::Android => {
+                self.android
+                    .as_ref()
+                    .ok_or_else(|| missing_backend("Android SDK"))?
+                    .inventory()
+                    .await
+            }
+            Platform::Ios => {
+                self.ios
+                    .as_ref()
+                    .ok_or_else(|| missing_backend("Xcode Simulator"))?
+                    .inventory()
+                    .await
+            }
         }
     }
 
@@ -226,14 +323,18 @@ impl Host {
                     "version": env!("CARGO_PKG_VERSION"),
                     "control_protocol": SCHEMA,
                     "media_protocol": "MPP1",
-                    "methods": ["hello", "devices.list", "emulator.start", "session.connect", "session.status", "session.disconnect", "preview.start", "preview.stop", "input.send"],
+                    "methods": ["hello", "devices.list", "emulator.start", "simulator.start", "session.connect", "session.status", "session.disconnect", "preview.start", "preview.stop", "input.send"],
                     "video_backend": "requires_device_assets",
-                    "input_backend": "requires_device_assets"
+                    "input_backend": "requires_device_assets",
+                    "platforms": {
+                        "android": self.android.is_some(),
+                        "ios": self.ios.is_some()
+                    }
                 }))
             }
             "devices.list" => {
-                params::<Empty>(input)?;
-                value(self.android.inventory().await?)
+                let p: ListDevices = params(input)?;
+                value(self.inventory(p.platform).await?)
             }
             "emulator.start" => {
                 let p: Boot = params(input)?;
@@ -242,13 +343,38 @@ impl Host {
                         message: "starting an emulator requires explicit consent".into(),
                     });
                 }
-                value(self.android.boot(&p.avd).await?)
+                value(
+                    self.android
+                        .as_ref()
+                        .ok_or_else(|| missing_backend("Android SDK"))?
+                        .boot(&p.avd)
+                        .await?,
+                )
+            }
+            "simulator.start" => {
+                let p: BootSimulator = params(input)?;
+                if !p.consent {
+                    return Err(Error::PermissionDenied {
+                        message: "starting a Simulator requires explicit consent".into(),
+                    });
+                }
+                value(
+                    self.ios
+                        .as_ref()
+                        .ok_or_else(|| missing_backend("Xcode Simulator"))?
+                        .boot(&p.udid)
+                        .await?,
+                )
             }
             "session.connect" => {
                 let p: Connect = params(input)?;
+                let platform = if p.device.starts_with("ios:") {
+                    Platform::Ios
+                } else {
+                    Platform::Android
+                };
                 let device = self
-                    .android
-                    .inventory()
+                    .platform_inventory(platform)
                     .await?
                     .devices
                     .into_iter()
@@ -256,16 +382,13 @@ impl Host {
                     .ok_or_else(|| Error::NotFound {
                         what: format!("device {}", p.device),
                     })?;
-                let serial = device
-                    .serial
-                    .clone()
-                    .ok_or_else(|| Error::InvalidArgument {
-                        message:
-                            "device is not running; explicitly start its AVD before connecting"
-                                .into(),
-                    })?;
-                let verified = self.android.probe(&serial).await?;
-                if device.transport_id != verified.transport_id || device.avd != verified.avd {
+                let verified = self.probe(&device).await?;
+                let mut selected = device.clone();
+                if selected.platform == Platform::Ios && selected.transport_id.is_none() {
+                    // Inventory knows the UUID; only probing establishes this boot's identity.
+                    selected.transport_id = verified.transport_id.clone();
+                }
+                if !same_device(&selected, &verified) {
                     return Err(Error::StaleSession);
                 }
                 // &mut self serializes requests. Acquire only after awaiting the probe so
@@ -279,18 +402,8 @@ impl Host {
             "session.status" => {
                 let p: Lease = params(input)?;
                 let session = self.lease(&p)?;
-                let serial =
-                    session
-                        .device
-                        .serial
-                        .as_deref()
-                        .ok_or_else(|| Error::Unsupported {
-                            feature: "non-Android session probe".into(),
-                        })?;
-                match self.android.probe(serial).await {
-                    Ok(device)
-                        if device.transport_id == session.device.transport_id
-                            && device.avd == session.device.avd => {}
+                match self.probe(&session.device).await {
+                    Ok(device) if same_device(&device, &session.device) => {}
                     result => {
                         let _ = self.previews.stop_session(&session).await;
                         let _ = self.leases.disconnect(&p.owner, &p.session, p.generation);
@@ -312,7 +425,12 @@ impl Host {
                 let session = self.leases.status(&p.owner, &p.session, p.generation)?;
                 value(
                     self.previews
-                        .start(&self.android, &session, p.options()?)
+                        .start_with_backends(
+                            self.android.as_ref(),
+                            self.ios.as_ref(),
+                            &session,
+                            p.options(session.device.platform)?,
+                        )
                         .await?,
                 )
             }
@@ -349,11 +467,31 @@ impl Host {
 
     pub async fn shutdown(&mut self) {
         self.close();
-        let _ = tokio::join!(
-            self.previews.shutdown(),
-            self.android.shutdown_stream_starts(),
-        );
+        let android = async {
+            if let Some(android) = &self.android {
+                let _ = android.shutdown_stream_starts().await;
+            }
+        };
+        let ios = async {
+            if let Some(ios) = &self.ios {
+                let _ = ios.shutdown_stream_starts().await;
+            }
+        };
+        tokio::join!(self.previews.shutdown(), android, ios);
     }
+}
+
+fn same_device(left: &Device, right: &Device) -> bool {
+    left.platform == right.platform
+        && left.kind == right.kind
+        && left.id == right.id
+        && left.serial == right.serial
+        && left.transport_id == right.transport_id
+        && left.avd == right.avd
+}
+
+fn missing_backend(tool: &str) -> Error {
+    Error::ToolNotFound { tool: tool.into() }
 }
 
 fn oversized() -> Response {

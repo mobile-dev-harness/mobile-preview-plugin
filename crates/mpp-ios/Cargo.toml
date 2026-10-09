@@ -1,22 +1,21 @@
 [package]
-name = "mpp-host"
+name = "mpp-ios"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 license.workspace = true
 
-[[bin]]
-name = "mpp"
-path = "src/main.rs"
-
 [dependencies]
 mpp-core.workspace = true
-mpp-android.workspace = true
-mpp-ios.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 
-[lints]
-workspace = true
+# CoreSimulator and VideoToolbox bindings isolate audited unsafe blocks.
+[lints.rust]
+unsafe_code = "deny"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

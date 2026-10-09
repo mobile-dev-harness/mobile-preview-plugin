@@ -15,7 +15,10 @@ const fail = (code, message) => new ServiceError(code, message);
 const token = () => randomBytes(32).toString('base64url');
 const fields = Object.freeze({
   'client.open': [], 'client.heartbeat': ['client'], 'client.close': ['client'],
-  'devices.list': ['client'], 'emulator.start': ['client', 'avd', 'consent'],
+  'platform.get': ['client', 'sessionId'],
+  'platform.select': ['client', 'sessionId', 'platform'],
+  'devices.list': ['client', 'platform'], 'emulator.start': ['client', 'avd', 'consent'],
+  'simulator.start': ['client', 'udid', 'consent'],
   'session.connect': ['client', 'sessionId', 'device'],
   'session.status': ['client', 'binding'], 'session.disconnect': ['client', 'binding'],
   'session.list': ['client', 'sessionId'],
@@ -42,7 +45,7 @@ function parse(body) {
   const params = body.params === undefined ? {} : body.params;
   const allowed = fields[body.method];
   if (!object(params) || Object.keys(params).some((key) => !allowed.includes(key))
-    || allowed.some((key) => !Object.hasOwn(params, key))) {
+    || allowed.some((key) => !(body.method === 'devices.list' && key === 'platform') && !Object.hasOwn(params, key))) {
     throw fail('INVALID_ARGUMENT', 'Unexpected or missing request parameters.');
   }
   for (const name of ['client', 'binding', 'stream']) {
@@ -50,11 +53,17 @@ function parse(body) {
       throw fail('INVALID_ARGUMENT', `${name} must be a service-issued token.`);
     }
   }
-  for (const name of ['sessionId', 'device', 'avd']) {
+  for (const name of ['sessionId', 'device', 'avd', 'udid']) {
     if (name in params) boundedString(params[name], name, name === 'avd' ? 128 : 256);
   }
-  if (body.method === 'emulator.start' && params.consent !== true) {
-    throw fail('PERMISSION_DENIED', 'Starting an emulator requires explicit consent.');
+  if ('platform' in params && !['android', 'ios'].includes(params.platform)) {
+    throw fail('INVALID_ARGUMENT', 'platform must be android or ios.');
+  }
+  if ('udid' in params && !/^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$/u.test(params.udid)) {
+    throw fail('INVALID_ARGUMENT', 'udid must identify an iOS Simulator.');
+  }
+  if (['emulator.start', 'simulator.start'].includes(body.method) && params.consent !== true) {
+    throw fail('PERMISSION_DENIED', 'Starting an emulator or simulator requires explicit consent.');
   }
   return { method: body.method, params };
 }
@@ -66,11 +75,15 @@ export class ConnectionService {
   #tail = Promise.resolve(); #wireTail = Promise.resolve(); #pending = 0; #disposed = false; #disposing;
   #salt = token(); #timer;
   #previews;
+  #platforms = new Map(); #platformRevision = 0; #platformEpoch = token();
+  #connecting = new Set();
+  #platformRequests = new Set(); #platformMutations = new Map();
 
   constructor({ createBridge, bridgeConfig, validateSession, requestTimeoutMs = 15_000,
     bootTimeoutMs = 130_000, heartbeatMs = 15_000, leaseTtlMs = 45_000,
     sweepIntervalMs = 1_000, maxClients = 32, previewTimeoutMs = 45_000,
-    deviceAssets, videoMaxSize = 1280, videoBitRate = 4_000_000, videoMaxFps = 30 }) {
+    deviceAssets, videoMaxSize = 1280, videoBitRate = 4_000_000, videoMaxFps = 30,
+    iosAvailable = process.platform === 'darwin' }) {
     if (typeof createBridge !== 'function' || typeof validateSession !== 'function') {
       throw fail('INVALID_CONFIG', 'Bridge creation and conversation validation are required.');
     }
@@ -84,7 +97,8 @@ export class ConnectionService {
     this.#createBridge = createBridge;
     this.#bridgeConfig = bridgeConfig;
     this.#validateSession = validateSession;
-    this.#options = options;
+    if (typeof iosAvailable !== 'boolean') throw fail('INVALID_CONFIG', 'Invalid iOS availability.');
+    this.#options = { ...options, iosAvailable };
     this.#previews = new PreviewPool({
       assetsDir: deviceAssets, maxSize: videoMaxSize, bitRate: videoBitRate, maxFps: videoMaxFps,
       rpc: (binding, method, params, timeoutMs) => this.#wire(binding.bridge, method, params, timeoutMs),
@@ -119,7 +133,7 @@ export class ConnectionService {
       return { client, host: hostname(), heartbeatMs: this.#options.heartbeatMs,
         leaseTtlMs: this.#options.leaseTtlMs, requestTimeoutMs: this.#options.requestTimeoutMs,
         bootTimeoutMs: this.#options.bootTimeoutMs, previewTimeoutMs: this.#options.previewTimeoutMs,
-        capabilities: { video: Boolean(this.#previews.available), input: Boolean(this.#previews.available) } };
+        capabilities: { video: this.#options.iosAvailable || Boolean(this.#previews.available), input: Boolean(this.#previews.available) } };
     }
     const client = this.#clients.get(params.client);
     if (!client || client.closed) throw fail('CLIENT_EXPIRED', 'The mobile preview client is no longer active.');
@@ -145,11 +159,15 @@ export class ConnectionService {
         ? this.#previews.input(binding, params.stream, params.requests, signal)
         : this.#previews.stop(binding, params.stream);
     }
-    const timeoutMs = method === 'emulator.start' ? this.#options.bootTimeoutMs
+    if (method === 'platform.get' || method === 'platform.select') {
+      return this.#platformOperation(params.sessionId, params.platform, 'user', signal, client);
+    }
+    const timeoutMs = ['emulator.start', 'simulator.start'].includes(method) ? this.#options.bootTimeoutMs
       : method === 'preview.start' ? this.#options.previewTimeoutMs : this.#options.requestTimeoutMs;
     return this.#schedule(client, signal, timeoutMs, async (ctx) => {
-      if (method === 'devices.list') return this.#request(ctx, 'devices.list', {});
+      if (method === 'devices.list') return this.#request(ctx, method, params.platform === undefined ? {} : { platform: params.platform });
       if (method === 'emulator.start') return this.#request(ctx, method, { avd: params.avd, consent: true });
+      if (method === 'simulator.start') return this.#request(ctx, method, { udid: params.udid, consent: true });
       if (method === 'session.connect') return this.#connect(client, params, ctx);
       if (method === 'preview.start') {
         const binding = await this.#previewBinding(client, params.binding, ctx.signal);
@@ -206,9 +224,96 @@ export class ConnectionService {
     });
   }
 
+  /** Agent requests carry the live DSH session identity, never a browser binding. */
+  requestPlatform(sessionId, platform, { signal } = {}) {
+    if (!['android', 'ios'].includes(platform)) {
+      return Promise.reject(fail('INVALID_ARGUMENT', 'platform must be android or ios.'));
+    }
+    return this.#platformOperation(sessionId, platform, 'agent', signal);
+  }
+
+  async #platformOperation(sessionId, platform, source, signal, client) {
+    boundedString(sessionId, 'sessionId', 256);
+    const controller = new AbortController();
+    if (this.#disposed) throw fail('CLOSED', 'The mobile preview service is closed.');
+    if (this.#platformRequests.size >= 64) throw fail('BUSY', 'Too many pending platform requests.');
+    this.#platformRequests.add(controller);
+    if (platform !== undefined) {
+      this.#platformMutations.get(sessionId)?.abort(fail('ABORTED', 'A newer platform choice superseded this request.'));
+      this.#platformMutations.set(sessionId, controller);
+    }
+    const cancel = () => controller.abort(fail('ABORTED', 'The platform request was cancelled.'));
+    const expired = () => controller.abort(fail('CLIENT_EXPIRED', 'The mobile preview client is no longer active.'));
+    const check = () => {
+      if (this.#disposed) throw fail('CLOSED', 'The mobile preview service is closed.');
+      if (controller.signal.aborted) throw controller.signal.reason;
+      if (client && (client.closed || Date.now() >= client.expires)) {
+        throw fail('CLIENT_EXPIRED', 'The mobile preview client is no longer active.');
+      }
+    };
+    signal?.addEventListener('abort', cancel, { once: true });
+    client?.controller.signal.addEventListener('abort', expired, { once: true });
+    if (signal?.aborted) cancel();
+    if (client?.closed) expired();
+    const timer = setTimeout(() => controller.abort(fail('TIMEOUT', 'The platform request timed out.')), this.#options.requestTimeoutMs);
+    try {
+      check();
+      await this.#validate(sessionId, controller.signal);
+      check();
+      const previous = this.#platforms.get(sessionId);
+      if (platform !== undefined) {
+        if (this.#connecting.has(sessionId)) {
+          throw new ServiceError('BUSY', 'A device connection is in progress.', 'Wait for the connection to finish before choosing a platform.');
+        }
+        const connections = [...this.#bindings.values()].filter(binding => binding.sessionId === sessionId);
+        if (connections.some(binding => binding.session.device.platform !== platform)) {
+          throw new ServiceError('BUSY', 'This conversation already has a device on another platform.',
+            'Disconnect the current device before choosing another platform.');
+        }
+        const selection = { sessionId, platform, source, revision: ++this.#platformRevision,
+          epoch: this.#platformEpoch, available: platform === 'android' || this.#options.iosAvailable };
+        this.#platforms.delete(sessionId);
+        // Selection is transient host state; keep a bounded working set of conversations.
+        if (this.#platforms.size >= 256) this.#platforms.delete(this.#platforms.keys().next().value);
+        this.#platforms.set(sessionId, selection);
+        return { ...selection };
+      }
+      if (previous) {
+        this.#platforms.delete(sessionId);
+        this.#platforms.set(sessionId, previous);
+        return { ...previous };
+      }
+      return { sessionId, platform: null, source: null, revision: this.#platformRevision,
+        epoch: this.#platformEpoch, available: false };
+    } catch (error) {
+      if (missingSession(error)) this.#platforms.delete(sessionId);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', cancel);
+      client?.controller.signal.removeEventListener('abort', expired);
+      this.#platformRequests.delete(controller);
+      if (this.#platformMutations.get(sessionId) === controller) this.#platformMutations.delete(sessionId);
+    }
+  }
+
   async #connect(client, params, ctx) {
+    this.#connecting.add(params.sessionId);
+    try { return await this.#connectDevice(client, params, ctx); }
+    finally { this.#connecting.delete(params.sessionId); }
+  }
+
+  async #connectDevice(client, params, ctx) {
     await this.#validate(params.sessionId, ctx.signal);
     ctx.check();
+    const chosenPlatform = this.#platforms.get(params.sessionId)?.platform;
+    if ((chosenPlatform === 'ios' || params.device.startsWith('ios:')) && !this.#options.iosAvailable) {
+      throw new ServiceError('UNSUPPORTED', 'iOS Simulator preview requires a macOS host.',
+        'Connect to a macOS host with Xcode installed, or select Android.');
+    }
+    if (chosenPlatform && !params.device.startsWith(`${chosenPlatform}:`)) {
+      throw fail('INVALID_ARGUMENT', 'The device must match the platform selected for this conversation.');
+    }
     if (this.#bindings.size >= 64) throw fail('BUSY', 'Too many connected device sessions.');
     const owner = `dsh:${createHash('sha256').update(`${this.#salt}\0${params.sessionId}`).digest('hex')}`;
     const session = await this.#request(ctx, 'session.connect', { owner, device: params.device });
@@ -404,7 +509,7 @@ export class ConnectionService {
     const onAbort = () => {
       // Ordinary cancellation lets a consented boot finish and releases a late connect.
       // A timed-out connect has no trustworthy receipt, so its host must be stopped.
-      cleanup = active && ctx.sent && ctx.method !== 'emulator.start'
+      cleanup = active && ctx.sent && !['emulator.start', 'simulator.start'].includes(ctx.method)
         && controller.signal.reason.code === 'TIMEOUT' ? this.#dropBridge(ctx.bridge) : Promise.resolve();
       cleanup.then(() => rejectAbort(controller.signal.reason), () => rejectAbort(controller.signal.reason));
     };
@@ -455,6 +560,9 @@ export class ConnectionService {
     if (this.#disposing) return this.#disposing;
     this.#disposed = true;
     clearInterval(this.#timer);
+    this.#platforms.clear();
+    for (const controller of this.#platformRequests) controller.abort(fail('CLOSED', 'The mobile preview service is closed.'));
+    this.#platformMutations.clear();
     this.#disposing = (async () => {
       await Promise.all([...this.#clients.values()].map((client) => this.#endClient(client)));
       await this.#previews.dispose();

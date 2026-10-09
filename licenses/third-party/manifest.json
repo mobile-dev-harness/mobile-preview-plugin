@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "cargoLockSha256": "2ea8d888748d0d705664f5354e13dcc751f280988878e4dffb451380ac77de25",
+  "cargoLockSha256": "2271088df13c67ca9d33c1cb07b045f13a90368426f93408b49b24e64b394bf4",
   "targets": {
     "aarch64-apple-darwin": {
       "runtime": [
@@ -555,7 +555,8 @@
       "directDependenciesOf": [
         "mpp-android-device",
         "mpp-core",
-        "mpp-host"
+        "mpp-host",
+        "mpp-ios"
       ],
       "licenseFiles": [
         {
@@ -634,7 +635,8 @@
       "directDependenciesOf": [
         "mpp-android",
         "mpp-android-device",
-        "mpp-host"
+        "mpp-host",
+        "mpp-ios"
       ],
       "licenseFiles": [
         {
@@ -862,7 +864,8 @@
       "buildTargets": [],
       "directDependenciesOf": [
         "mpp-android",
-        "mpp-host"
+        "mpp-host",
+        "mpp-ios"
       ],
       "licenseFiles": [
         {

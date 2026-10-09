@@ -26,7 +26,7 @@ function requireFile(path, executable, externalAssets = false) {
 export function resolveRuntime(input, {
   packageRoot = PACKAGE_ROOT, platform = process.platform, arch = process.arch,
 } = {}) {
-  // A developer-supplied host can discover devices without having preview assets.
+  // A developer-supplied host can discover devices and preview iOS without Android assets.
   if (input.executable !== undefined) return {
     executable: input.executable,
     ...(input.deviceAssets === undefined ? {} : { deviceAssets: input.deviceAssets }),

@@ -2,20 +2,25 @@ use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 
 use mpp_android::Android;
 use mpp_core::{Error, Result, Session, stream::Geometry};
+use mpp_ios::Ios;
 use serde::Serialize;
 use tokio::{sync::oneshot, task::JoinHandle, time::timeout};
 
 #[cfg(unix)]
 use {
-    mpp_android::{RunningStream, StreamOptions},
-    mpp_core::stream::{ControlReply, ControlRequest, MAX_CONTROL_BYTES},
+    mpp_android::StreamOptions,
+    mpp_core::{
+        Platform,
+        stream::{ControlReply, ControlRequest, MAX_CONTROL_BYTES},
+    },
     std::{
         os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt},
         path::Path,
+        sync::atomic::{AtomicBool, Ordering},
     },
     tokio::{
         io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader},
-        net::{TcpStream, UnixListener, UnixStream},
+        net::{UnixListener, UnixStream},
     },
 };
 
@@ -26,8 +31,8 @@ const IO_TIMEOUT: Duration = Duration::from_secs(2);
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub struct PreviewOptions {
-    pub bootstrap: PathBuf,
-    pub library: PathBuf,
+    pub bootstrap: Option<PathBuf>,
+    pub library: Option<PathBuf>,
     pub socket_dir: PathBuf,
     pub stream_id: String,
     pub token: String,
@@ -66,6 +71,17 @@ impl PreviewManager {
         session: &Session,
         options: PreviewOptions,
     ) -> Result<PreviewDescriptor> {
+        self.start_with_backends(Some(android), None, session, options)
+            .await
+    }
+
+    pub async fn start_with_backends(
+        &mut self,
+        android: Option<&Android>,
+        ios: Option<&Ios>,
+        session: &Session,
+        options: PreviewOptions,
+    ) -> Result<PreviewDescriptor> {
         self.reap().await;
         if self.active.contains_key(&options.stream_id)
             || self
@@ -85,27 +101,52 @@ impl PreviewManager {
         #[cfg(unix)]
         {
             let sockets = PrivateSockets::bind(&options.socket_dir)?;
-            let mut running = android
-                .start_stream(
-                    &session.device,
-                    StreamOptions {
-                        bootstrap: options.bootstrap,
-                        library: options.library,
-                        token: options.token,
-                        stream_id: options.stream_id.clone(),
-                        generation: session.generation,
-                        epoch: self.epoch,
-                        max_size: options.max_size,
-                        bit_rate: options.bit_rate,
-                        max_fps: options.max_fps,
-                    },
-                )
-                .await?;
+            let mut running = match session.device.platform {
+                Platform::Android => BackendStream::Android(Box::new(
+                    android
+                        .ok_or_else(|| missing_backend("Android SDK"))?
+                        .start_stream(
+                            &session.device,
+                            StreamOptions {
+                                bootstrap: options
+                                    .bootstrap
+                                    .ok_or_else(|| invalid("Android preview requires bootstrap"))?,
+                                library: options
+                                    .library
+                                    .ok_or_else(|| invalid("Android preview requires library"))?,
+                                token: options.token,
+                                stream_id: options.stream_id.clone(),
+                                generation: session.generation,
+                                epoch: self.epoch,
+                                max_size: options.max_size,
+                                bit_rate: options.bit_rate,
+                                max_fps: options.max_fps,
+                            },
+                        )
+                        .await?,
+                )),
+                Platform::Ios => BackendStream::Ios(
+                    ios.ok_or_else(|| missing_backend("Xcode Simulator"))?
+                        .start_stream(
+                            &session.device,
+                            mpp_ios::StreamOptions {
+                                token: options.token,
+                                stream_id: options.stream_id.clone(),
+                                generation: session.generation,
+                                epoch: self.epoch,
+                                max_size: options.max_size,
+                                bit_rate: options.bit_rate,
+                                max_fps: options.max_fps,
+                            },
+                        )
+                        .await?,
+                ),
+            };
             let descriptor = PreviewDescriptor {
                 stream_id: options.stream_id.clone(),
                 epoch: self.epoch,
                 generation: session.generation,
-                geometry: running.geometry,
+                geometry: running.geometry(),
                 video_socket: sockets.video_path.path.clone(),
                 control_socket: sockets.control_path.path.clone(),
             };
@@ -134,7 +175,7 @@ impl PreviewManager {
         }
         #[cfg(not(unix))]
         {
-            let _ = (android, options);
+            let _ = (android, ios, options);
             Err(Error::Unsupported {
                 feature: "private preview sockets on this platform".into(),
             })
@@ -189,7 +230,7 @@ impl PreviewManager {
                 active.task.abort();
                 let _ = (&mut active.task).await;
                 Err(Error::Timeout {
-                    operation: "closing the Android preview".into(),
+                    operation: "closing the device preview".into(),
                 })
             }
         };
@@ -223,6 +264,51 @@ fn same_lease(left: &Session, right: &Session) -> bool {
 fn signal(active: &mut ActivePreview) {
     if let Some(cancel) = active.cancel.take() {
         let _ = cancel.send(());
+    }
+}
+
+#[cfg(unix)]
+trait PreviewIo: AsyncRead + AsyncWrite + Unpin + Send {}
+
+#[cfg(unix)]
+impl<T: AsyncRead + AsyncWrite + Unpin + Send> PreviewIo for T {}
+
+#[cfg(unix)]
+type PreviewChannel = Box<dyn PreviewIo>;
+
+#[cfg(unix)]
+enum BackendStream {
+    Android(Box<mpp_android::RunningStream>),
+    Ios(mpp_ios::RunningStream),
+}
+
+#[cfg(unix)]
+impl BackendStream {
+    fn geometry(&self) -> Geometry {
+        match self {
+            Self::Android(stream) => stream.geometry,
+            Self::Ios(stream) => stream.geometry,
+        }
+    }
+
+    fn take_streams(&mut self) -> Result<(PreviewChannel, PreviewChannel)> {
+        match self {
+            Self::Android(stream) => {
+                let (video, control) = stream.take_streams()?;
+                Ok((Box::new(video), Box::new(control)))
+            }
+            Self::Ios(stream) => {
+                let (video, control) = stream.take_streams()?;
+                Ok((Box::new(video), Box::new(control)))
+            }
+        }
+    }
+
+    async fn close(&mut self) -> Result<()> {
+        match self {
+            Self::Android(stream) => stream.close().await,
+            Self::Ios(stream) => stream.close().await,
+        }
     }
 }
 
@@ -309,19 +395,16 @@ impl PrivateSockets {
 
 #[cfg(unix)]
 async fn run_preview(
-    mut running: RunningStream,
+    mut running: BackendStream,
     sockets: PrivateSockets,
-    video: TcpStream,
-    control: TcpStream,
+    video: PreviewChannel,
+    control: PreviewChannel,
     epoch: u64,
     cancelled: oneshot::Receiver<()>,
 ) -> Result<()> {
     let relay = async {
         let (local_video, local_control) = sockets.accept().await?;
-        tokio::select! {
-            result = relay_video(video, local_video) => result,
-            result = relay_control(control, local_control, epoch) => result,
-        }
+        relay_channels(video, control, local_video, local_control, epoch).await
     };
     // Dropping either relay future closes both socket pairs before backend cleanup begins.
     tokio::select! { _ = cancelled => {}, _ = relay => {} }
@@ -331,7 +414,33 @@ async fn run_preview(
 }
 
 #[cfg(unix)]
-async fn relay_video(mut device: TcpStream, local: UnixStream) -> Result<()> {
+async fn relay_channels(
+    video: PreviewChannel,
+    control: PreviewChannel,
+    local_video: UnixStream,
+    local_control: UnixStream,
+    epoch: u64,
+) -> Result<()> {
+    let pending = AtomicBool::new(false);
+    let video_closed = AtomicBool::new(false);
+    let control = relay_control(control, local_control, epoch, &pending, &video_closed);
+    tokio::pin!(control);
+    tokio::select! {
+        result = &mut control => result,
+        result = relay_video(video, local_video) => {
+            video_closed.store(true, Ordering::Relaxed);
+            // Stop can close video before its receipt reaches the local client.
+            // An in-flight request already has a bounded deadline for its complete reply.
+            if pending.load(Ordering::Relaxed) {
+                control.await?;
+            }
+            result
+        }
+    }
+}
+
+#[cfg(unix)]
+async fn relay_video(mut device: PreviewChannel, local: UnixStream) -> Result<()> {
     let (mut local_read, mut local_write) = local.into_split();
     let copy = async {
         let mut chunk = [0; 64 * 1024];
@@ -354,8 +463,14 @@ async fn relay_video(mut device: TcpStream, local: UnixStream) -> Result<()> {
 }
 
 #[cfg(unix)]
-async fn relay_control(device: TcpStream, local: UnixStream, epoch: u64) -> Result<()> {
-    let (device_read, mut device_write) = device.into_split();
+async fn relay_control(
+    device: PreviewChannel,
+    local: UnixStream,
+    epoch: u64,
+    pending: &AtomicBool,
+    video_closed: &AtomicBool,
+) -> Result<()> {
+    let (device_read, mut device_write) = tokio::io::split(device);
     let (local_read, mut local_write) = local.into_split();
     let mut device_read = FrameReader::new(device_read);
     let mut local_read = FrameReader::new(local_read);
@@ -376,6 +491,7 @@ async fn relay_control(device: TcpStream, local: UnixStream, epoch: u64) -> Resu
         last_seq = request.seq;
         let mut frame = bytes;
         frame.push(b'\n');
+        pending.store(true, Ordering::Relaxed);
         timeout(IO_TIMEOUT, async {
             device_write.write_all(&frame).await?;
             let reply = device_read
@@ -401,6 +517,10 @@ async fn relay_control(device: TcpStream, local: UnixStream, epoch: u64) -> Resu
         .map_err(|_| Error::Timeout {
             operation: "forwarding device input and its submission receipt".into(),
         })??;
+        pending.store(false, Ordering::Relaxed);
+        if video_closed.load(Ordering::Relaxed) {
+            return Ok(());
+        }
     }
 }
 
@@ -469,5 +589,65 @@ async fn write_bounded(writer: &mut (impl AsyncWrite + Unpin), bytes: &[u8]) -> 
 fn invalid(message: &str) -> Error {
     Error::InvalidArgument {
         message: message.into(),
+    }
+}
+
+#[cfg(unix)]
+fn missing_backend(tool: &str) -> Error {
+    Error::ToolNotFound { tool: tool.into() }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn video_eof_cannot_discard_an_in_flight_stop_receipt() {
+        let (video, remote_video) = tokio::io::duplex(1024);
+        let (control, remote_control) = tokio::io::duplex(1024);
+        let (local_video, mut client_video) = UnixStream::pair().unwrap();
+        let (local_control, client_control) = UnixStream::pair().unwrap();
+        let relay = tokio::spawn(relay_channels(
+            Box::new(video),
+            Box::new(control),
+            local_video,
+            local_control,
+            7,
+        ));
+        let mut client_control = BufReader::new(client_control);
+        client_control
+            .get_mut()
+            .write_all(b"{\"seq\":1,\"epoch\":7,\"command\":{\"kind\":\"stop\"}}\n")
+            .await
+            .unwrap();
+        let mut remote_control = BufReader::new(remote_control);
+        let mut line = String::new();
+        timeout(IO_TIMEOUT, remote_control.read_line(&mut line))
+            .await
+            .unwrap()
+            .unwrap();
+        drop(remote_video);
+        // Observe video EOF before allowing the backend to finish its control reply.
+        assert_eq!(
+            timeout(IO_TIMEOUT, client_video.read(&mut [0]))
+                .await
+                .unwrap()
+                .unwrap(),
+            0
+        );
+        remote_control
+            .get_mut()
+            .write_all(b"{\"seq\":1,\"ok\":true,\"code\":null,\"message\":null}\n")
+            .await
+            .unwrap();
+        line.clear();
+        timeout(IO_TIMEOUT, client_control.read_line(&mut line))
+            .await
+            .unwrap()
+            .unwrap();
+        let reply: ControlReply = serde_json::from_str(&line).unwrap();
+        assert!(reply.ok);
+        assert_eq!(reply.seq, 1);
+        timeout(IO_TIMEOUT, relay).await.unwrap().unwrap().unwrap();
     }
 }

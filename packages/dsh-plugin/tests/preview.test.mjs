@@ -21,8 +21,9 @@ async function fixture(t, options = {}) {
   for (const name of ['bootstrap.jar', 'libmpp_android_device.so']) await writeFile(join(assets, name), 'test asset');
   const calls = [], states = [], gates = [], timers = [];
   let epoch = 0;
-  const binding = { token: 'private-binding', owner: 'chat-owner', session: { id: 'session-1', generation: 9 }, bridge: {} };
-  const pool = new PreviewPool({ assetsDir: assets, rpc: async (owner, method, params, timeout) => {
+  const binding = { token: 'private-binding', owner: 'chat-owner', session: { id: 'session-1', generation: 9,
+    device: options.device ?? { platform: 'android', capabilities: { video: false, input: false, lifecycle: true, screenshot: false } } }, bridge: {} };
+  const pool = new PreviewPool({ assetsDir: options.noAssets ? undefined : assets, rpc: async (owner, method, params, timeout) => {
     calls.push({ owner, method, params, timeout });
     if (method === 'preview.stop') {
       if (options.stopGate) { gates.push(options.stopGate); await options.stopGate.promise; }
@@ -108,6 +109,49 @@ test('missing assets report unsupported without spawning RPC work', async () => 
   const pool = new PreviewPool({ rpc: () => { assert.fail('RPC must not run'); } });
   assert.equal(pool.available, false);
   await assert.rejects(pool.start({}), { code: 'UNSUPPORTED' });await pool.dispose();
+});
+
+test('read-only iOS video requires no Android assets and retains media control commands', async t => {
+  const f = await fixture(t, { noAssets: true, device: { platform: 'ios', kind: 'simulator',
+    capabilities: { video: true, input: false, lifecycle: true, screenshot: false } } });
+  assert.equal(f.pool.available, false);
+  const result = await f.pool.start(f.binding);
+  assert.deepEqual(result.capabilities, { video: true, input: false });
+  const { params } = f.calls[0];
+  assert.equal(Object.hasOwn(params, 'bootstrap'), false);
+  assert.equal(Object.hasOwn(params, 'library'), false);
+  assert.equal(params.generation, 9);
+  assert.match(params.token, /^[a-f0-9]{64}$/u);
+  const commands = ['key_frame', 'heartbeat', 'reset', 'stop'];
+  assert.deepEqual(await f.pool.input(f.binding, result.stream,
+    commands.map((kind, index) => request(index + 1, result.epoch, kind))),
+  { replies: commands.map((_, index) => reply(index + 1)) });
+  assert.deepEqual(f.states[0].requests.map(item => item.command.kind), commands);
+});
+
+test('read-only iOS rejects device input before forwarding any batch command', async t => {
+  const f = await fixture(t, { noAssets: true, device: { platform: 'ios', capabilities: { video: true, input: false } } });
+  const result = await f.pool.start(f.binding);
+  await assert.rejects(f.pool.input(f.binding, result.stream, [request(1, result.epoch),
+    { seq: 2, epoch: result.epoch, command: { kind: 'input', event: { kind: 'key', code: 3, phase: 'down' } } }]),
+  { code: 'UNSUPPORTED' });
+  assert.equal(f.states[0].requests.length, 0);
+  assert.equal(f.calls.at(-1).method, 'preview.stop');
+});
+
+test('input-capable Simulator bindings advertise and forward acknowledged touch and Home controls', async t => {
+  const f = await fixture(t, { noAssets: true, device: { platform: 'ios',
+    capabilities: { video: true, input: true, lifecycle: true, screenshot: false } } });
+  const result = await f.pool.start(f.binding);
+  assert.deepEqual(result.capabilities, { video: true, input: true });
+  const events = [
+    ...['down', 'move', 'up'].map(phase => ({ kind: 'touch', phase, x: 0.5, y: 0.25, width: 480, height: 1066 })),
+    ...['down', 'up'].map(phase => ({ kind: 'key', phase, code: 3 })),
+  ];
+  const requests = events.map((event, index) => ({ seq: index + 1, epoch: result.epoch, command: { kind: 'input', event } }));
+  assert.deepEqual(await f.pool.input(f.binding, result.stream, requests), { replies: requests.map(item => reply(item.seq)) });
+  assert.deepEqual(f.states[0].requests, requests);
+  assert.equal(Object.hasOwn(f.calls[0].params, 'bootstrap'), false);
 });
 
 test('rejects descriptor identity, unsafe numbers and paths outside the owned directory', async t => {

@@ -110,6 +110,9 @@ function batch(requests, slot) {
       || !exact(command, command.kind === 'input' ? ['kind', 'event'] : ['kind'])) {
       throw fail('INVALID_ARGUMENT', 'Input sequence, capture epoch or command is invalid.');
     }
+    if (command.kind === 'input' && !slot.capabilities.input) {
+      throw fail('UNSUPPORTED', 'This preview is read-only; device input is unavailable.');
+    }
     let line;
     try {
       line = JSON.stringify(request, (_key, value) => {
@@ -144,12 +147,16 @@ export class PreviewPool {
     if (this.#disposed) throw fail('CLOSED', 'The preview pool has closed.');
     if (signal?.aborted) throw aborted();
     if (this.#slots.has(binding)) throw fail('BUSY', 'This binding already has a preview operation.');
-    if (!this.available) throw fail('UNSUPPORTED', 'Built Android preview assets are unavailable.');
+    const device = binding?.session?.device;
+    const ios = device?.platform === 'ios';
+    if (!ios && !this.available) throw fail('UNSUPPORTED', 'Built Android preview assets are unavailable.');
     if (!positive(binding?.session?.generation) || typeof binding.owner !== 'string' || typeof binding.session.id !== 'string') {
       throw fail('STALE_SESSION', 'The device binding is invalid.');
     }
+    if (ios && device.capabilities?.video !== true) throw fail('UNSUPPORTED', 'This device does not support video preview.');
     const slot = { binding, stream: randomBytes(32).toString('base64url'), id: randomBytes(16).toString('hex'),
       lease: { owner: binding.owner, session: binding.session.id, generation: binding.session.generation },
+      capabilities: { video: true, input: !ios || device.capabilities?.input === true },
       stopped: false, attempted: false, seq: 0, busy: false, mediaUsed: false, listeners: [] };
     this.#slots.set(binding, slot);
     slot.work = this.#initialize(slot);
@@ -159,7 +166,7 @@ export class PreviewPool {
       await slot.work;
       if (slot.stopped || signal?.aborted) throw aborted();
       const { epoch, generation, geometry } = slot.descriptor;
-      return { stream: slot.stream, epoch, generation, geometry, capabilities: { video: true, input: true } };
+      return { stream: slot.stream, epoch, generation, geometry, capabilities: slot.capabilities };
     } catch (error) {
       await this.#close(slot).catch(() => {});
       throw error;
@@ -173,7 +180,10 @@ export class PreviewPool {
     if (slot.stopped) throw aborted();
     slot.attempted = true;
     const result = await this.#rpc(slot.binding, 'preview.start', {
-      ...slot.lease, bootstrap: join(this.#assets, 'bootstrap.jar'), library: join(this.#assets, 'libmpp_android_device.so'),
+      ...slot.lease,
+      ...(slot.binding.session.device?.platform === 'ios' ? {} : {
+        bootstrap: join(this.#assets, 'bootstrap.jar'), library: join(this.#assets, 'libmpp_android_device.so'),
+      }),
       socket_dir: slot.dir, stream_id: slot.id, token: randomBytes(32).toString('hex'), ...this.#settings,
     }, 45_000);
     if (positive(result?.epoch)) slot.epoch = result.epoch;

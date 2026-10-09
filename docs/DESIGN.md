@@ -1,4 +1,4 @@
-# Rust framework and Android preview
+# Rust framework and mobile preview
 
 ## Product boundary
 
@@ -6,6 +6,11 @@ Mobile Preview Plugin (MPP) is independent of mobile-dev-harness. It will provid
 device connection, live preview and input for DSH Web and Desktop, with eventual
 Android and iOS simulator and physical-device support. DSH UI code is a thin host
 integration; device/session/media behavior belongs to Rust.
+
+The `0.1.0-preview.5` GitHub Release candidate includes existing Android support
+and local iOS Simulator on macOS Apple Silicon. Physical iOS is outside this
+release. The repository is public; npm stays private. Final artifact acceptance
+and publication are pending in [RELEASING.md](RELEASING.md).
 
 The current development implementation includes Android discovery, explicit
 emulator startup, transport leases, display capture, H.264 transport and
@@ -18,6 +23,21 @@ emulator and API 36 physical-device checks remain historical. Broader platform
 and long GUI-session qualification remain outstanding.
 A transport connection does not establish a decoded first frame or a successful
 application action.
+
+The current source also implements experimental iOS Simulator video and
+capability-gated single-pointer tap/drag and Home on macOS Apple Silicon with Xcode.
+Initial scope is upright portrait, without keyboard/text/IME, multi-touch, Back
+or physical iOS devices. Native and interactive stock Web/official Desktop
+Home/tap/drag effects passed on the recorded target. The previous read-only source build decoded
+changing Settings video in stock DSH Web and official Desktop on macOS 26.7 Apple
+Silicon / Xcode 26.4 / iOS 26.4 / iPhone 17. Other versions and several lifecycle
+cases remain unqualified; see the [iOS qualification record](IOS-SIMULATOR.md).
+This source increment is separate from the previously qualified Android archives.
+
+The source bottom-edge Home gesture passed in Web and Desktop. A manual Web App
+Switcher gesture passed on 2026-10-10; manual Desktop App Switcher is unqualified.
+These observations apply to the recorded Xcode 26.4 / iOS 26.4 / iPhone 17 target,
+not every runtime or the pending release archive.
 
 Audio, recording, remote device farms and a dependency on mdh are out of scope.
 The implementation does not launch or redistribute scrcpy. Its separate media
@@ -40,8 +60,12 @@ Rust implementation, not scrcpy wire compatibility.
   private Unix sockets carry video and input; these bypass the stdio lifecycle queue.
 - `mpp-android-device`: Rust/JNI display capture and input plus NDK H.264 encoding,
   restricted to API 29–37 / arm64. It depends on core types, never the adb adapter.
-  Audited unsafe boundaries are limited to its codec, platform and native modules;
-  the other crates continue to forbid unsafe code. `codec_probe` remains independent.
+  Its audited unsafe boundaries are limited to codec, platform and native modules.
+  `codec_probe` remains independent.
+- `mpp-ios`: local Simulator discovery/startup, capture and capability-gated input in an isolated
+  child. Its macOS native boundary uses direct Objective-C runtime FFI,
+  CoreSimulator/IOSurface, pixel transfer, VideoToolbox and DTUHID; no external dependency
+  or Apple framework binary is added to the package.
 - `android-bootstrap/dev/mpp/Bootstrap.java`: approved tiny `app_process` entry
   that prepares the Looper, loads the Rust shared library, invokes its native
   entry and exits. It contains no capture, transport or input implementation.
@@ -79,17 +103,60 @@ Transport leases remain process-local. An Android abstract-socket lock additiona
 prevents competing MPP capture helpers on one device; it does not block mdh,
 external adb commands or physical touches.
 
-The panel displays inventory, startup progress and `transport_ready` status. A new
-binding enables per-chat preview intent, and a visible mounted canvas starts it
-automatically. Actual start checks assets/device and WebCodecs probes its codec.
+The panel begins with Android/iOS selection. New chats have no default platform
+and opening the landing view does not trigger adb discovery. Android selection
+loads Android inventory; iOS selection on macOS loads local Xcode Simulators for
+explicit startup and video. Native probing gates single-pointer tap/drag and Home;
+missing input capability leaves read-only video. Non-macOS Hosts show an unavailable
+backend for iOS. Physical iOS devices remain unimplemented.
+The Android panel displays inventory, startup progress and `transport_ready`
+status. A new binding enables per-chat preview intent, and a visible mounted
+canvas starts it automatically. Actual start checks assets/device and WebCodecs probes its codec.
 Hiding suspends capture/input while retaining intent and a valid transport lease;
 returning to an eligible view resumes it. Explicit Pause/Resume remains distinct
 from a visibility suspension, and genuine errors block repeated current-view
-attempts. The plugin provides no MCP
-tools or model vision and sends neither frames nor inventory into model context. The
-adapter tests cover protocol failures, startup diagnostics, client ownership,
+attempts. The plugin provides no MCP tools or model vision and sends neither frames
+nor inventory into model context. Its optional agent tool only routes the chat's
+platform panel, as described below. The adapter tests cover protocol failures,
+startup diagnostics, client ownership,
 queue cancellation, expiry, reconnect and negotiated timing; the source-built Web
 and native Desktop have both displayed actual emulator connections.
+
+### Platform selection and agent panel requests
+
+Platform selection belongs to the JavaScript DSH integration; it does not change
+the Rust protocol or native backend. Authenticated `platform.get` and
+`platform.select` methods on the existing browser route validate the chat and
+access one bounded host-owned selection cache. A record contains
+`{sessionId, platform, source, revision, epoch, available}`. Platform starts as
+`null`; `android` and `ios` are the only selections. Source is `null`, `user` or
+`agent`. Android reports backend availability; iOS reports availability on macOS.
+Availability is not an installed-Xcode/runtime, device compatibility or decoded-frame
+claim. The six selection fields and optional agent tool contract are unchanged.
+
+The cache holds at most 256 chats and evicts least-recently-used records. It is
+independent of browser clients and device leases: a browser reload recovers a
+retained choice, while plugin-service disposal or DSH Host restart clears it.
+Every selection advances a host revision, including another request for the same
+platform; a fresh service epoch distinguishes host lifetimes. A pending connection
+or a different-platform device already bound to the chat yields `BUSY`. Selection
+never disconnects an existing device to make room.
+
+One optional DSH agent tool, `open_mobile_preview`, accepts only
+`{platform: "android" | "ios"}`. It obtains the conversation from
+`exec.agent.session.id` and uses the same validated selection operation with
+source `agent`. It only selects the platform and requests that chat's panel; it
+cannot list or choose devices, boot an emulator, connect, send input or capture
+screenshots. Users still pick the actual device and connect. Registration uses
+`ctx.inject(['tools'], ...)` so the base plugin works when no tools service is
+present. No additional dependency or MCP server is introduced.
+
+Only the mounted chat polls platform state, every two seconds while the document
+is visible. It opens its panel once for each new agent epoch/revision, preventing
+an inactive chat from taking focus. Closing a panel is respected for the consumed
+request; a later request can reopen it. Polling routes the panel; existing connected
+previews still follow the visibility rules below. The tool's successful return
+records a UI request, not delivery to an absent frontend or a live device session.
 
 ### Preview intent and phone presentation
 
@@ -228,8 +295,40 @@ and [InputManagerGlobal](https://raw.githubusercontent.com/aosp-mirror/platform_
 
 The Java bootstrap is unchanged; API-specific capture, input and cleanup stay in
 Rust. Hidden framework signatures and vendor behavior still require target-device
-qualification. iOS requires a separate backend; simctl is not assumed to provide
-arbitrary touch injection.
+qualification. The separate iOS Simulator input path uses DTUHID; simctl is not
+assumed to provide arbitrary touch injection.
+
+The iOS capture child samples raw IOSurface pixels at every bounded frame interval,
+copies/scales into an owned NV12 pixel buffer with VTPixelTransfer, and encodes
+through VideoToolbox into the existing MPP1/WebCodecs path. GPU rendering does not
+reliably advance IOSurface seeds; seed checks only detect some concurrent changes
+during copying and never gate sampling. This is raw surface acquisition, not a
+PNG/screenshot loop. Direct Objective-C runtime
+FFI checks the private CoreSimulator classes, protocols and selectors it needs.
+Those interfaces require qualification per Xcode/runtime version; the current
+machine's installed CoreSimulator is 1174.9.2, not a claimed universal baseline.
+
+The current `mpp` executable starts its own `--ios-capture` child with a full-duplex
+Unix control socket inherited as FD 0 (`--control-fd 0`); stdout carries MPP1 and
+stderr diagnostics. `--enable-input` is added only after a positive native probe.
+It binds the Simulator UDID plus `launchd_sim` PID and libproc process start
+time, validates that boot at startup and periodically, and terminates on identity,
+orientation or surface geometry changes. EOF/SIGTERM cleanup releases owned
+capture/encoding resources without shutting down the user's Simulator. The
+six-field preview descriptor remains unchanged; Node propagates the probed
+`Device.capabilities.input`, preserving a read-only fallback. iOS startup needs
+no Android JAR or native `.so`.
+
+CoreSimulator 1174.9.2 suppresses the legacy Indigo input path. The native backend
+uses the DTUHID digitizer XPC service through the selected device's Mach port.
+A positive no-event handshake gates input capability. Real events are sent with
+`isBarrier: false`, followed by a no-event barrier whose reply confirms ordered
+submission. HTTP success waits for that native acknowledgement, not merely queueing;
+application effects still require observation. Input validates boot identity,
+geometry, sequence and epoch, and rechecks timed-out work before injecting.
+Its wakeup is independent of video FPS. The two-second watchdog, reset, EOF and
+owner drop release owned holds. DTUHID `cancel` maps to end, which may complete a
+tap or drag; it does not provide UIKit `touchesCancelled` semantics.
 
 The API 29 build links with 16 KiB maximum/common page-size alignment and inspects
 every ELF LOAD segment before replacing device assets. The checked library had
@@ -282,8 +381,10 @@ never synthesizes input heartbeats or sequence numbers.
 
 Extend physical-device qualification to rotation, hot unplug and long GUI sessions,
 then qualify additional USB Android devices and Android API/ABI combinations separately.
-iOS discovery and capture/input
-are a separate backend, with compatibility evidence tied to Xcode/runtime versions.
+Complete the remaining iOS lifecycle qualification on the recorded target, then
+widen the Xcode/runtime/Simulator compatibility matrix.
+Extend input lifecycle qualification beyond the recorded Web/Desktop passes. Keyboard/text/IME,
+multi-touch, Back and physical-device support remain separate future work.
 Upstream DSH inclusion is a later contribution, not a change to DSH in this increment.
 
 ## Streaming and input: research basis and implementation rules
@@ -315,8 +416,10 @@ and [device shutdown][scrcpy-server].
 
 ### Channels and ownership
 
-The video path is device display → Rust/NDK encoder → ordered bounded media
+The Android video path is device display → Rust/NDK encoder → ordered bounded media
 transport → Rust host → thin DSH byte forwarding → WebCodecs decoder → canvas.
+The iOS Simulator path replaces capture/encoding with IOSurface → owned NV12 →
+VideoToolbox in its isolated child, preserving the media and browser path.
 The Rust host and Node adapter do not decode or re-encode video. Video is displayed
 in the device panel and is not continuously supplied to a language model.
 
@@ -358,6 +461,10 @@ Bound compressed backlog and `decodeQueueSize`; retain at most one pending decod
 `VideoFrame`, closing replaced and displayed frames. Queue size alone is not a
 measurement of total decoder memory. See the [AVC registration][webcodecs-avc]
 and [WebCodecs specification][webcodecs].
+
+Repeated identical SPS/PPS retain the configured decoder and pending canvas frame.
+An encoder repeating its configuration before an IDR must not trigger a reset loop
+that discards the decoded frame before it can be displayed.
 
 At `decodeQueueSize >= 4`, normal ordered consumption waits for `dequeue`, with a
 two-second stall deadline; it does not reset the decoder just because the queue

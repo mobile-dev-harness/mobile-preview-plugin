@@ -8,8 +8,24 @@ Mobile Preview Plugin（MPP）是独立的 Rust 框架，用于为 DeepSeek Harn
 Desktop 连接移动设备。目标产品将提供模拟器与真机的实时预览和输入控制，不依赖
 mobile-dev-harness（mdh）。
 
-**当前状态：已实现 Android 视频与控制链路的开发预览版。** Rust 后端与本地 DSH
-插件提供设备发现、显式启动模拟器、会话所有权、H.264 视频流以及单指触摸和基础
+公开源码仓库正在准备首个 GitHub Release：**`0.1.0-preview.5`**，范围为现有 Android
+支持加上本机 iOS Simulator。最终 CI 归档验收和发布尚待完成，详见
+[发布检查表](docs/RELEASING.md)。npm 包继续保持私有。这是开发预览，不是 1.0 稳定版。
+
+**当前状态：已实现 Android 视频与控制，以及按设备能力启用的实验性 iOS Simulator
+视频、单指点击／拖动和 Home。** 当前本地源码构建已在
+macOS 26.7 Apple Silicon／Xcode 26.4／iOS 26.4／iPhone 17 上，
+通过原版 DSH Web `0.2.1-alpha.1` 和官方 Desktop `0.2.0-rc.2` 验证 Home、画布点击
+和可见的拖动滚动效果。这些本地源码检查不代表待验收的 preview.5 归档已经通过。该目标上的
+原生输入效果，以及 Web 画布调整大小后的点击坐标也已通过验证。
+初始范围仅限正向竖屏，不支持键盘／文本／IME、多点触控、Back 或 iOS 真机。
+只有原生能力探测通过后才启用输入，否则保留只读预览。清理时会通过结束当前
+iOS 手势来释放触点，因此可能完成该次点击或拖动。其他 Xcode／runtime
+组合及部分生命周期场景仍未验收；详见
+[iOS Simulator 证据与剩余检查](docs/IOS-SIMULATOR.md)。
+
+对于 Android，Rust 后端与本地 DSH 插件提供设备发现、显式启动模拟器、会话所有权、
+H.264 视频流以及单指触摸和基础
 按键输入。当前候选版已实现 **Android 10–17 / API 29–37 arm64-v8a 适配**，
 需要 Unix 主机和支持 WebCodecs 的客户端。运行验收仍在进行，进入允许范围不代表
 兼容性通过。API 30–37 矩阵目标的原生采集／输入／清理已通过，其中 API 37 模拟器
@@ -33,18 +49,24 @@ API 29 模拟器环境受编码器 surface 路径问题阻塞。此前 API 32 �
 | Rust/JNI 采集、NDK H.264 编码和 WebCodecs 播放 | 已实现 API 29–37 arm64 适配，按兼容性矩阵逐目标验收 |
 | 单指触摸与基础 Android 按键 | 已实现，已在目标模拟器验证 Web/Desktop 点击、拖动和导航 |
 | DSH Web/Desktop 连接按钮与设备面板 | 已实现，原版 Web 与官方 Desktop GUI 已在记录的归档及目标上验证 |
-| iOS Simulator 与 iOS 真机 | 计划中，尚无后端 |
+| Android／iOS 平台选择与可选的 `open_mobile_preview` agent 工具 | 已实现；为当前聊天打开对应平台面板，不选择或连接设备 |
+| iOS Simulator 发现、显式启动和视频 | 实验性源码实现；前一阶段已在 Xcode 26.4／iOS 26.4／iPhone 17 通过 Web／Desktop 视频检查 |
+| iOS Simulator 单指点击／拖动和 Home | 原生输入能力验证后启用；已在记录的目标上通过原生、原版 Web 和官方 Desktop 实际效果检查 |
+| iOS 键盘／文本／IME、多点触控、Back 和真机 | 尚未实现 |
 
 目前可以通过 adb 发现和探测 Android 真机；预览／输入验收独立于设备发现，按下方
 实际测试目标记录。音频
 和录制不在当前范围内。MPP 参考 scrcpy 将视频与控制分离的设计，但不运行、分发
 或依赖 scrcpy，也不实现其通信协议。
 
-## 安装本地预览包
+## 安装预览候选包
 
 打包脚本会生成自带运行文件的 `.tgz`，当前面向 **macOS 14 或更新版本的 Apple Silicon DSH Host**
-并提供 **Android API 29–37 arm64-v8a 适配**。这是本地预览产物；尚未发布 npm 包或
-GitHub Release。`0.1.0-preview.1` 安装包已在官方 npm DSH `0.2.1-alpha.1`
+并提供 **Android API 29–37 arm64-v8a 适配**，以及通过已安装 Xcode 使用本机
+**iOS Simulator** 的能力。iOS 验收限于 macOS 26.7／Xcode 26.4／iOS 26.4／iPhone 17，
+不包含 iOS 真机。`0.1.0-preview.5` 的归档身份和验收记录见
+[发布检查表](docs/RELEASING.md)；此前安装包检查保留为历史证据。
+`0.1.0-preview.1` 安装包已在官方 npm DSH `0.2.1-alpha.1`
 Web 发行版的独立 profile 中通过干净安装、播放和卸载验收，未使用源码补丁、
 运行文件路径覆盖或模型 API key。官方 Desktop `0.2.0-rc.2` 应用已通过签名和
 公证检查；`0.1.0-preview.3` 已通过其内置 CLI 在独立 profile 中安装并启用。
@@ -56,23 +78,34 @@ Web 发行版的独立 profile 中通过干净安装、播放和卸载验收，�
 Web profile 对应的 CLI 命令为：
 
 ```sh
-dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz
+dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz
 ```
 
-`0.1.0-preview.4` 只是开发版本示例，并非已发布或已验收的版本。请使用实际生成
-安装包的版本和路径。
+`0.1.0-preview.5` 是已选定的发布候选版。请使用发布检查表中列明校验和及验收记录的
+精确归档；目前尚未确认发布完成。
 
 安装包包含 Rust 主程序和配套的 Android bootstrap／原生库，启动时会按已安装
 插件的位置自动解析路径。使用安装包不需要设置 `MPP_EXECUTABLE`，也不需要
-Rust、NDK 或 JDK。DSH Host 仍需安装 Android SDK platform-tools，并连接已授权的
+Rust、NDK 或 JDK。使用 Android 时，DSH Host 需安装 Android SDK platform-tools，并连接已授权的
 API 29–37 arm64 设备；使用前请查看兼容性矩阵中的验收状态。使用模拟器时还需要
 emulator 组件和现有的受支持 AVD。
 Web 客户端需要 H.264 WebCodecs 支持。
 原版 DSH 的侧栏宽度继续手动调整；预览和输入不依赖可选的宽度补丁。
 
-打开设备面板，选择明确的设备并点击 **Connect** 即可开始预览。前置条件、限制
-和卸载方法见[插件包说明](packages/dsh-plugin/README.md)。源码开发仍支持显式
-配置 `executable` 和 `deviceAssets`。
+打开设备面板后，先选择 **Android** 或 **iOS**。新聊天默认不选择平台，也不会
+触发 adb 设备发现。选择 **Android** 后加载设备列表，再选择明确的设备并点击
+**Connect** 开始预览。在 macOS 上使用当前源码构建时，选择 **iOS** 会列出本机
+Xcode Simulator，供用户明确启动并查看视频；所选 Simulator 的输入探测通过后，
+可使用点击／拖动和 Home，否则保留只读视频。其他主机会显示后端不可用。
+目前不支持 iOS 真机。此前已验收的 Android 归档不包含或
+证明本次 iOS 实现。前置条件、限制和卸载方法见
+[插件包说明](packages/dsh-plugin/README.md)。源码开发仍支持显式配置
+`executable` 和 `deviceAssets`。
+
+使用 iOS 返回主屏幕手势时，从真实屏幕内部最底部的 2% 区域开始，短距离向上滑动。
+装饰边框不属于触摸区域。手势验收范围见 [iOS 指南](docs/IOS-SIMULATOR.md)。
+用户手动操作的 Web 应用切换器手势已于 2026-10-10 通过；Desktop 手动应用切换器
+仍未验收。
 
 安装新的原生插件包版本后，请先重启 DSH Host 再连接设备；热重载可能仍保留上一版
 包内运行文件的相对路径。
@@ -112,8 +145,10 @@ GUI 运行。这些手机结果不代表后续 CI 归档已经通过真机或其
 
 ## 从源码构建与试用
 
-需要 Rust 1.88 或以上版本。设备命令还需要 Android SDK platform-tools（`adb`）；
-AVD 发现与启动需要 SDK emulator 组件以及已创建的 AVD。
+需要 Rust 1.88 或以上版本。Android 命令还需要 Android SDK platform-tools（`adb`）；
+AVD 发现与启动需要 SDK emulator 组件以及已创建的 AVD。iOS Simulator 命令则需要
+macOS Apple Silicon、Xcode 和已安装的 iOS Simulator runtime；iOS 预览不需要
+Android SDK 或 Android 设备端产物。
 
 ```sh
 cargo build --workspace --locked
@@ -142,6 +177,17 @@ SDK 工具优先从 `ANDROID_HOME`、`ANDROID_SDK_ROOT` 和常规 SDK 安装位�
 指定 `--adb` 后，如果需要发现或启动 AVD，也应指定 `--emulator`。缺少 emulator
 工具时仍可发现已连接设备，同时会返回警告。
 
+实验性的 iOS 后端使用 `devices` 返回的精确 Simulator UDID；启动仍需明确请求：
+
+```sh
+./target/debug/mpp boot --simulator <UDID>
+./target/debug/mpp probe --simulator <UDID>
+```
+
+CLI 接受 `--xcrun /absolute/path/to/xcrun`，默认使用 `/usr/bin/xcrun`。
+当前选定的 Xcode 提供 runtime 与 CoreSimulator 组件。源码配置、采集边界和具体
+验收范围见 [iOS 指南](docs/IOS-SIMULATOR.md)。断开预览后，Simulator 仍保持运行。
+
 ## DSH 开发插件
 
 适配层位于 `packages/dsh-plugin`，不依赖 mdh，也没有新增第三方 Node 依赖；
@@ -150,7 +196,7 @@ SDK 工具优先从 `ANDROID_HOME`、`ANDROID_SDK_ROOT` 和常规 SDK 安装位�
 手机预览的自动侧栏宽度还需要本地 DSH UI 扩展；它不属于该上游提交，也不是已经
 被官方合入的 API。
 
-构建 [Android 设备端产物](#android-设备端构建与编码器探测)，再准备好固定版本的
+使用 Android 时，先构建[设备端产物](#android-设备端构建与编码器探测)，再准备好固定版本的
 DSH 源码，在本仓库中选择一个界面启动：
 
 ```sh
@@ -194,8 +240,8 @@ adb reverse 映射。随后完整重启 Desktop 进程，在移除临时诊断�
 原生持续运行或最新 Web 检查中再次出现，但原因仍未查明。这些结果不能证明更广泛
 的平台兼容性或端到端 GUI 的持续可靠性，也不构成吞吐量或延迟承诺。
 
-明确选择已授权且处于当前 API／ABI 实现范围内的设备，点击**连接**后，可见的手机
-屏幕会自动启动预览。
+选择 **Android** 后，选择已授权且处于当前 API／ABI 实现范围内的设备，点击
+**连接**后，可见的手机屏幕会自动启动预览。
 聊天会在
 调整大小、暂时隐藏／进入后台或视图替换期间保留预览意图。隐藏时暂停采集并释放
 输入；只要连接仍有效，返回可见视图后会等待旧采集清理完毕，再自动恢复。主动
@@ -222,8 +268,20 @@ document 事件有单元测试覆盖，但尚未单独测试真实 OS 最小化�
 
 连接租约仅在各自的进程内生效；设备端 helper 还会拒绝同一设备上竞争采集的其他
 MPP 进程，但不会阻止外部 adb 或人工触摸。Web 与 Desktop 应依次测试同一台设备。
-Web 操作的是 DSH Host 所在机器连接的设备。面板没有注册 agent 工具，也不会
-赋予模型视觉能力；stdio 桥接属于内部协议，不是 MCP。
+Web 操作的是 DSH Host 所在机器连接的设备；stdio 桥接属于内部协议，不是 MCP。
+
+DSH 提供 tools 服务时，插件会注册唯一的可选 agent 工具：
+`open_mobile_preview({platform: "android"})`（也可传入 `"ios"`）。例如，可以对
+agent 说：“为当前聊天打开 Android 预览。”工具会选择平台并请求打开调用它的聊天
+面板，具体设备仍由你选择和连接。它不能启动或连接设备、发送输入或截取屏幕，
+也不会赋予模型视觉能力。iOS 请求会在 macOS 上打开 Simulator 选择界面，
+可用的手动控制由所选设备的原生能力决定。没有 tools 服务时，仍可手动使用插件。
+
+平台选择按聊天保存在 DSH Host 的有容量上限的内存中；记录仍保留时，浏览器刷新后
+可以恢复，但插件服务或 DSH Host 重启后会重置。已有不同平台的设备连接时，切换
+会返回 `BUSY`，需要先明确断开连接。页面可见时，已挂载的当前聊天每两秒检查请求，
+每个新的 agent 请求只打开一次面板，非当前聊天不会抢占焦点。关闭面板后，同一个
+请求不会反复打开它；新的 agent 请求可以再次打开。
 
 ## 本地 Host 协议
 
@@ -253,19 +311,22 @@ Android 租约还绑定 adb transport ID，同一序列号被新的连接复用�
 
 ## 开发
 
-工作区包含四个 crate：
+工作区包含五个 crate：
 
 | Crate | 职责 |
 | --- | --- |
 | `mpp-core` | 设备／会话类型、采集 epoch、输入状态和媒体分帧，无平台 I/O |
 | `mpp-android` | SDK／设备发现、生命周期、helper 部署与通道认证 |
 | `mpp-android-device` | Rust/JNI Android 采集与输入，以及 NDK H.264 编码 |
+| `mpp-ios` | 本机 Simulator 发现／启动、隔离的 CoreSimulator／IOSurface → VideoToolbox 采集，以及按能力启用的 DTUHID 输入 |
 | `mpp-host` | `mpp` CLI、stdio 生命周期协议与私有媒体／控制转发 |
 
 基础依赖为 Tokio、Serde、serde_json 和 thiserror；另已批准 `jni` 0.22 与极小的
 Java bootstrap，用于访问 Android framework。Java 只初始化运行时和加载 Rust；
 采集、媒体、传输与输入仍由 Rust 负责。JavaScript 适配层将会话绑定到 DSH 聊天，
 并提供 Web/Desktop 共用界面。
+iOS crate 没有新增外部依赖，通过小型原生 FFI 边界调用已安装的 Apple framework；
+这些 framework 不随插件分发。
 
 ```sh
 cargo fmt --all --check
@@ -337,11 +398,11 @@ adb -t "$MPP_TRANSPORT_ID" shell rm /data/local/tmp/mpp-codec-probe
 `capture_verified: false` 和 `first_output: null`。这仅验证了配置、创建输入
 surface、启动、输出出队、停止和释放；这些历史探测没有验证当前的实时视频链路。
 
-源码仓库仍为私有并处于开发阶段，各 crate 均设置了 `publish = false`，源码和暂存插件的
+源码仓库已公开并处于开发阶段，各 crate 均设置了 `publish = false`，源码和暂存插件的
 manifest 均保留 `private: true`；生成本地 `.tgz` 不会发布它。MPP 采用
 [Apache-2.0](LICENSE) 许可；随包依赖保留各自的许可，记录于
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 和 `licenses/third-party/`，
-这些文件也随预览包分发。npm 发布或 GitHub Release 尚未授权，也未执行；已测范围、
-剩余限制和审核步骤见
+这些文件也随预览包分发。`0.1.0-preview.5` 的 GitHub Release 发布已获授权，等待最终
+归档验收；本次不包含 npm 发布。已测范围、剩余限制和发布状态见
 [RELEASING.md](docs/RELEASING.md)。纳入 DSH 官方分发属于未来的上游贡献目标，
 不代表目前已被内置或获得认可。这是开发预览，不是 1.0 稳定版。

@@ -10,7 +10,7 @@ const request = body => new Request(`http://localhost${API_PATH}`, {
 test('configuration rejects unknown settings, relative tools and invalid timing relationships', () => {
   assert.equal(resolveConfig(config).leaseTtlMs, 45_000);
   for (const value of [null, [], { executable: 'mpp' },
-    { ...config, adb: 'adb' }, { ...config, secret: 'do-not-echo' },
+    { ...config, adb: 'adb' }, { ...config, xcrun: 'xcrun' }, { ...config, secret: 'do-not-echo' },
     { ...config, bootTimeoutMs: 10_000 }, { ...config, heartbeatMs: 20_000 },
     { ...config, requestTimeoutMs: Infinity }, { ...config, maxClients: 1.5 }]) {
     assert.throws(() => resolveConfig(value), error => !error.message.includes('do-not-echo'));
@@ -22,6 +22,7 @@ test('explicit host configuration retains development and discovery-only default
   assert.equal(result.executable, config.executable);
   assert.equal(result.deviceAssets, undefined);
   assert.equal(resolveConfig({ ...config, deviceAssets: '/tmp/custom-assets' }).deviceAssets, '/tmp/custom-assets');
+  assert.equal(resolveConfig({ ...config, xcrun: '/usr/bin/xcrun' }).xcrun, '/usr/bin/xcrun');
 });
 
 test('configuration validates settings before looking for the bundled runtime', () => {
@@ -96,14 +97,17 @@ test('conversation validation observes metadata, disposes it and preserves failu
   }
 });
 
-test('plugin registers only its authenticated DSH route and awaited lifecycle cleanup', async () => {
+test('plugin keeps its authenticated routes available without the optional tool registry', async () => {
   const cleanup = [];
   const routes = [];
+  const injections = [];
   apply({
     sessionQuery: {},
     effect(setup) { cleanup.push(setup()); },
+    inject(dependencies, callback) { injections.push({ dependencies, callback }); },
     connection: { fetch: { register(value) { routes.push(value); } } },
   }, config);
+  assert.deepEqual(injections.map(item => item.dependencies), [['tools']]);
   assert.deepEqual(routes.map(item => item.path), [API_PATH, MEDIA_PATH]);
   const route = routes[0];
   assert.equal(route.path, API_PATH);

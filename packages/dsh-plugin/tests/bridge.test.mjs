@@ -91,6 +91,8 @@ test('configuration paths are absolute executable files and do not allow arbitra
     { executable, env: { API_KEY: 'secret' } },
     { executable, adb: 'adb' },
     { executable, emulator: '/missing-emulator' },
+    { executable, xcrun: 'xcrun' },
+    { executable, xcrun: '/missing-xcrun' },
   ]) await assert.rejects(createBridge(config), { code: 'INVALID_CONFIG' });
   await chmod(executable, 0o644);
   if (process.platform !== 'win32') {
@@ -104,10 +106,10 @@ test('tool paths are passed as individual arguments and environment credentials 
   process.env[variable] = 'never-forward-this-secret';
   t.after(() => { if (before === undefined) delete process.env[variable]; else process.env[variable] = before; });
   const executable = await fixture(t, `reply(request, { argv:process.argv.slice(2), leaked:process.env.${variable} ?? null, path:typeof process.env.PATH });`);
-  const bridge = await createBridge({ executable, adb: executable, emulator: executable });
+  const bridge = await createBridge({ executable, adb: executable, emulator: executable, xcrun: executable });
   t.after(() => bridge.close());
   const result = await bridge.request('devices.list');
-  assert.deepEqual(result.argv, ['--adb', executable, '--emulator', executable, 'serve', '--stdio']);
+  assert.deepEqual(result.argv, ['--adb', executable, '--emulator', executable, '--xcrun', executable, 'serve', '--stdio']);
   assert.equal(result.leaked, null);
   assert.equal(result.path, 'string');
 });
@@ -288,6 +290,9 @@ test('emulator startup reserves at least the Rust boot deadline', async (t) => {
   const bridge = await connected(t);
   await assert.rejects(bridge.request('emulator.start', { avd: 'test', consent: true }, { timeoutMs: BOOT_TIMEOUT_MS - 1 }), { code: 'INVALID_ARGUMENT' });
   assert.deepEqual(await bridge.request('emulator.start', { avd: 'test', consent: true }), { avd: 'test', consent: true });
+  const simulator = { udid: 'DEADBEEF-1234-5678-ABCD-123456789ABC', consent: true };
+  await assert.rejects(bridge.request('simulator.start', simulator, { timeoutMs: BOOT_TIMEOUT_MS - 1 }), { code: 'INVALID_ARGUMENT' });
+  assert.deepEqual(await bridge.request('simulator.start', simulator), simulator);
   for (const timeoutMs of [0, -1, Infinity, 0.5, 600001]) {
     await assert.rejects(bridge.request('devices.list', {}, { timeoutMs }), { code: 'INVALID_ARGUMENT' });
   }

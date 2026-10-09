@@ -2,6 +2,7 @@ import { isAbsolute } from 'node:path';
 import { createBridge } from './src/host/bridge.mjs';
 import { ConnectionService } from './src/host/service.mjs';
 import { resolveRuntime } from './src/host/runtime.mjs';
+import { registerAgentTool } from './src/host/agent.mjs';
 
 export const name = 'mobile-preview';
 export const inject = ['connection', 'sessionQuery'];
@@ -14,13 +15,13 @@ export function resolveConfig(input = {}) {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('mobile-preview config must be an object');
   }
-  const allowed = new Set(['executable', 'adb', 'emulator', 'requestTimeoutMs',
+  const allowed = new Set(['executable', 'adb', 'emulator', 'xcrun', 'requestTimeoutMs',
     'bootTimeoutMs', 'heartbeatMs', 'leaseTtlMs', 'sweepIntervalMs', 'maxClients',
     'deviceAssets', 'previewTimeoutMs', 'videoMaxSize', 'videoBitRate', 'videoMaxFps']);
   if (Object.keys(input).some(key => !allowed.has(key))) {
     throw new Error('mobile-preview config contains an unknown setting');
   }
-  for (const key of ['executable', 'adb', 'emulator', 'deviceAssets']) {
+  for (const key of ['executable', 'adb', 'emulator', 'xcrun', 'deviceAssets']) {
     const value = input[key];
     if (value === undefined) continue;
     if (typeof value !== 'string' || !isAbsolute(value) || value.includes('\0')) {
@@ -143,9 +144,9 @@ export function createHandler(service, media = false) {
 /** One service and Rust subprocess coordinate every chat in this DSH Host instance. */
 export function apply(ctx, input) {
   const config = resolveConfig(input);
-  const { executable, adb, emulator, ...policy } = config;
+  const { executable, adb, emulator, xcrun, ...policy } = config;
   const service = new ConnectionService({
-    ...policy, createBridge, bridgeConfig: { executable, adb, emulator },
+    ...policy, createBridge, bridgeConfig: { executable, adb, emulator, xcrun },
     validateSession: (sessionId, signal) => validateSession(ctx.sessionQuery, sessionId, signal),
   });
   ctx.effect(() => () => service.dispose(), 'mobile-preview: owned Rust host and sessions');
@@ -155,4 +156,5 @@ export function apply(ctx, input) {
   ctx.connection.fetch.register({
     path: MEDIA_PATH, methods: ['POST'], requestBody: 'buffered', fetch: createHandler(service, true),
   });
+  registerAgentTool(ctx, service);
 }

@@ -1,149 +1,126 @@
-# Preview release readiness
+# 0.1.0-preview.5 release checklist
 
-MPP is an unofficial development preview licensed under [Apache-2.0](../LICENSE).
-The source repository remains private, its crates retain `publish = false`, and
-the plugin retains `private: true`. This is not a 1.0 stable release.
-No npm publication or GitHub Release has been authorized or performed. Local
-packaging and GitHub Actions artifact uploads do not publish a release.
+The repository is public and licensed under [Apache-2.0](../LICENSE).
+**`0.1.0-preview.5` is the first public GitHub Release candidate**, covering
+existing Android support plus local iOS Simulator. GitHub publication is
+authorized; final CI artifact acceptance and publication are still pending.
+The npm package remains `private: true`, and Rust crates retain `publish = false`.
+This is an unofficial development preview, not a 1.0 stable release or an official
+DeepSeek distribution component.
 
-## Evidence and remaining acceptance
+## Candidate identity and acceptance
 
-The [Android matrix](ANDROID-COMPATIBILITY.md) records `0.1.0-preview.3`, with
-archive identity and per-target evidence in
-`target/android-matrix/verification.json`. Native capture/input/cleanup passed on
-the API 30–37 targets, including one API 37 emulator with 16 KiB pages. Stock DSH
-Web GUI first-frame/input checks passed on API 30–34. The official Desktop
-`0.2.0-rc.2` app passed signature/notarization checks and installed preview.3 through
-its bundled CLI in an isolated profile with the bundle enabled and native hashes
-matching. These results apply to those tested archives, targets and surfaces.
+Fill these fields from the exact artifact selected for publication. Historical
+source-build and archive checks below do not transfer to a new checksum.
 
-Additional native checks on the preview.3 components covered a 60-second stream,
-three reconnects, control EOF, stdin EOF, SIGTERM and emulator transport loss with
-recovery in the same host process. Final runs passed and left no owned helper,
-reverse mapping or stream directory. The first cold-boot recovery attempt did not
-observe Home taking effect; the independent retry and full retry after checking
-Android input readiness passed. Its cause is not fully isolated, so retain that
-attempt alongside the successful report at
-`target/release-readiness/native/summary.json`. This is neither a physical USB
-unplug test nor a long GUI-session qualification.
+| Item | Current status |
+| --- | --- |
+| GitHub Release version | `0.1.0-preview.5` |
+| Package | `mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz` plus adjacent `.sha256` |
+| Final source commit | Pending final commit |
+| CI workflow run and artifact | Pending |
+| Archive SHA-256 | Pending |
+| Runtime manifest and bundled native hashes | Pending verification against the chosen archive |
+| Local format, lint, tests and MSRV | Passed: 153 Rust tests (one device probe ignored by default), 185 plugin tests, formatting, strict Clippy and Rust 1.88; 14 packaging fixture tests passed after the packaging metadata update. Final CI results pending. |
+| Exact-archive installation and scoped runtime checks | Pending |
+| GitHub Release publication | Authorized; not yet confirmed |
+| npm publication | Outside this release; package remains private |
 
-The [remote packaging run](https://github.com/mobile-dev-harness/mobile-preview-plugin/actions/runs/37652914514)
-and [six-job CI run](https://github.com/mobile-dev-harness/mobile-preview-plugin/actions/runs/37652914657)
-passed for commit `9ec7afad96f486b8050f2f41e6ca8bade24c9b8c`. Its downloaded
-`0.1.0-preview.3` CI archive has SHA-256
-`d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`.
-This CI run-number version is distinct from the earlier local preview.3 matrix
-archive; identify them by checksum and source provenance, not version alone.
+## Release scope
 
-The exact downloaded archive passed native capture/Home and SIGTERM cleanup on
-API 37 with 16 KiB pages. It installed into fresh stock Web `0.2.1-alpha.1` and
-official Desktop `0.2.0-rc.2` profiles; both enabled the plugin and discovered the
-device through its authenticated backend. Desktop removal cleared the dependency,
-bundle entry, package link and native host; after restart its plugin route returned
-404. Reinstallation restored the backend. An earlier local preview.3-to-preview.4
-CLI upgrade also passed. These installation/backend checks are recorded under
-`target/release-readiness/{remote-artifact,native-ci,desktop-ci,web-ci}`.
+| Area | Included scope and evidence boundary |
+| --- | --- |
+| Host/client | macOS Apple Silicon Host; WebCodecs-capable DSH Web/Desktop clients. The host package targets macOS 14+, while current iOS live evidence uses macOS 26.7. |
+| Android | Existing API 29–37 arm64-v8a adapters, exact device selection, explicit AVD startup, H.264 preview, single-pointer input and basic keys. Adapter eligibility is not a full runtime matrix; API 29 remains blocked in the tested environment. |
+| iOS | Local Simulator only: Xcode 26.4 (17E192), iOS 26.4, iPhone 17 on the recorded Apple Silicon host. Other Xcode/runtime/Simulator combinations are unqualified. |
+| iOS controls | Capability-gated single-pointer tap/drag, Home and bottom-edge Home swipe; missing native input capability keeps read-only video. Source checks passed in stock Web 0.2.1-alpha.1 and official Desktop 0.2.0-rc.2. |
+| App Switcher | Timed native protocol gesture and actual user-operated Web gesture passed; the manual Web check was on 2026-10-10. Manual Desktop App Switcher remains unqualified. |
+| Agent tool | Optional `open_mobile_preview` selects the current chat's platform panel. It does not boot/connect devices, send input, capture screenshots or grant model vision. |
 
-The same downloaded archive subsequently passed separate GUI checks:
+The iOS preview is upright portrait with fixed capture geometry. Orientation,
+geometry or boot changes terminate the capture. It uses private CoreSimulator
+interfaces checked at runtime; installed Xcode and Apple frameworks are not
+redistributed. DTUHID cleanup ends held gestures and may complete the tap or drag;
+it does not guarantee UIKit cancellation without activation.
 
-- Stock Web `0.2.1-alpha.1`, API 35–37: actual decoded first frame, app-drawer
-  dragging or list scrolling, Settings/Apps taps, Back to Settings and Home to the
-  launcher. API 37 additionally passed Pause remaining paused across panel
-  reopening, Resume returning to Live and a 1280×820/narrow-viewport round trip
-  while staying Live. GUI removal after the connected API 35 session removed the
-  mobile entry, replaced its device view with DSH's no-renderer placeholder,
-  cleared the dependency/bundle and left no helper or owned reverse mapping. The
-  panel was hidden before entering Plugin Manager. GUI reinstallation, enabling
-  and reconnecting on API 35 restored a decoded Live view.
-- Official Desktop `0.2.0-rc.2`, API 37 with 16 KiB pages: actual decoded first
-  frame, Settings/Apps taps, dragging, Back/Home, Pause with helper/reverse cleanup,
-  Pause persisting across panel reopening, Resume returning to Live and a native
-  window-zoom round trip retaining Live. GUI removal removed the plugin entry and
-  renderer and cleared its dependency, bundle, helper and owned reverse mapping.
-  Opening Plugin Manager hides preview, so this removal began from a previously
-  connected chat. GUI reinstallation and enabling returned to Live.
+Physical iOS discovery, connection, input and preview are excluded. iOS
+keyboard/text/IME, multi-touch, Back, audio and recording are not included.
+Remaining live gaps include explicit Simulator boot through the plugin UI,
+rotation/geometry rejection, actual reboot invalidation and full plugin uninstall
+with iOS capture. Preserve these limitations in release notes rather than marking
+them passed. Android physical-device rotation, hot unplug, broad vendor coverage
+and sustained sessions also retain their existing limits.
 
-The Desktop and Web matrix JSON records identify the exact archive hash above.
-GUI records are in `target/release-readiness/gui/{desktop,web-matrix,web-ui-remove}.json`;
-screenshots are in the same directory, including `web-reinstalled-api35.png`.
-These checks close the previously unverified API 35–37 Web and
-official Desktop first-frame/input gates. They do not transfer the earlier local
-archive's API 30–34 qualification to the CI archive or establish sustained GUI
-reliability on all devices.
-
-Engineering acceptance is **`closed_for_tested_scope`**: the downloaded CI
-archive's Web API 35–37 and official Desktop API 37 first-frame/input and recorded
-lifecycle checks passed. The earlier local archive retains its separate API 30–34
-Web results. This status does not select a release version, authorize a public
-binary release or claim a full compatibility matrix. Product-site publication is
-separate from npm or GitHub Release publication.
-
-Keep these explicit exclusions and publication decisions:
-
-- API 29 is outside the qualified runtime scope pending a working target. The tested emulator codec
-  surface failed independently in MPP, scrcpy and system screenrecord; cleanup
-  passed, but capture/input remains unverified.
-- Retain the limits of physical-device coverage, rotation, physical USB hot unplug,
-  sustained GUI sessions and extreme interruptions. The earlier API 36 nubia phone
-  and source Desktop passes are historical evidence, not passes for every later
-  archive or vendor. The current CI archive's GUI targets were emulators.
-- Select an exact package version, checksum and qualification scope, then review
-  its retained evidence before any separately authorized npm or GitHub Release.
-
-## Build and identify the candidate
+## Build and verify the exact artifact
 
 Use the [packaging guide](DSH-DEVELOPMENT.md#build-a-self-contained-preview-package)
-with installed Rust 1.88.0 and Android NDK 26.1.10909125, matching the license
-inventory, and an explicit `<source-version>-preview.<number>` version:
+with the toolchains recorded in the license inventory, including Rust 1.88.0 and
+Android NDK 26.1.10909125:
 
 ```sh
-RUSTUP_TOOLCHAIN=1.88 node scripts/package-preview.mjs --version 0.1.0-preview.4
+RUSTUP_TOOLCHAIN=1.88 node scripts/package-preview.mjs --version 0.1.0-preview.5
 ```
 
-`0.1.0-preview.4` is a development example, not the selected public version.
-The script refuses existing output files, license-inventory drift and source
-changes during the build. It includes `LICENSE`, `THIRD-PARTY-NOTICES.md` and
-`licenses/third-party/` and emits an adjacent archive checksum.
+The script rejects output collisions, toolchain/license-inventory drift and source
+changes during packaging. It includes the host, Android assets, plugin runtime,
+license and third-party notices. iOS uses the host executable and installed Xcode;
+it needs no Android JAR or `.so` at runtime. Packaging or a workflow artifact upload
+alone does not publish a GitHub Release.
 
-Before acceptance, run Rust formatting, workspace tests and Clippy with warnings
-denied, plugin checks, script tests and Android-target Clippy. Retain the command
-results with the candidate evidence. Use locked Cargo dependencies and the same
-toolchain/build settings as the archive; tests without a device do not replace
-native or GUI qualification.
+- [ ] Commit existing Android plus Simulator-only iOS scope; ensure unfinished physical-iOS implementation
+      and private local evidence are absent from the published source and package.
+- [ ] Run formatting, workspace tests, Clippy with warnings denied, Rust 1.88/MSRV,
+      plugin checks, script tests and the Android-target checks. Record exact results.
+- [ ] Build or retrieve the `0.1.0-preview.5` CI artifact and its checksum. Record the
+      workflow URL, full commit SHA, artifact name and archive SHA-256 above.
+- [ ] Verify `runtime-manifest.json`: matching commit, `source.dirty: false`,
+      `source.treeSha256`, versions, targets and every bundled native-file hash.
+- [ ] Confirm `LICENSE`, `THIRD-PARTY-NOTICES.md` and `licenses/third-party/` match
+      the bundled dependencies. Keep Xcode, Apple frameworks and idb runtime out of
+      the redistributed archive.
+- [ ] Install that exact archive in clean DSH profiles and retain scoped Android
+      and iOS runtime evidence tied to its checksum. Cover video and supported
+      controls; keep historical checks distinct from new artifact checks.
+- [ ] Check README language parity and release notes against the scope and gaps
+      above; do not infer new device or lifecycle passes from older source builds.
+- [ ] Publish the reviewed archive and checksum as GitHub Release
+      `0.1.0-preview.5`, then record the actual release URL and publication result.
+      Keep npm private and retain provenance/evidence beyond CI artifact expiry.
 
-## Match a remote artifact to its commit
+The `Build preview package` workflow produces artifacts, not releases. Its
+run-number versions are CI test identities; use the explicit candidate version
+for this release. Checksums and runtime manifests establish integrity/provenance,
+not signatures. DSH Desktop notarization does not sign the MPP archive.
 
-The `Build preview package` workflow runs on relevant path pushes and manual
-dispatch. Push versions are `<source-version>-preview.<GITHUB_RUN_NUMBER>` CI test
-versions; manual dispatch requires an explicit version. Neither trigger selects
-or publishes the public version. Artifacts are retained for 14 days.
+## Historical evidence retained for scope
 
-For the accepted workflow run, record its URL, full commit SHA, package version,
-artifact name and archive SHA-256. Download its `.tgz` and `.sha256`, verify the
-archive checksum, and inspect `package/runtime-manifest.json` inside the archive:
+These records explain what has already been observed. They are not final
+`0.1.0-preview.5` artifact acceptance.
 
-- `source.commit` must equal the accepted workflow run's full commit SHA, and
-  `source.dirty` must be `false`. The workflow enforces both before upload.
-- Record `source.treeSha256`, the fingerprint of the source contents used for the
-  build. A local archive with `dirty: true` is not identified by its commit alone.
-- Check package/host versions, targets and each bundled native-file SHA-256
-  against the manifest. Confirm all license and notice files are present.
-- Install that exact archive in clean test profiles and attach its checksum to
-  the acceptance evidence. Do not substitute a locally rebuilt archive or infer
-  GUI success from an older package's tests.
-
-Checksums and the runtime manifest are integrity and provenance records, not
-signatures. The official Desktop app's signature/notarization status does not
-sign or notarize the MPP archive.
-
-## Manual review before publication
-
-Review the exact archive, source commit, checksums, test evidence, license inventory
-and release notes together. Ensure both READMEs describe the same qualification
-scope and list unresolved limitations without turning unverified targets into
-passes. Choose the public version and destination, and obtain explicit publication
-authorization for that concrete candidate. Keep `private: true` and the current
-artifact-only workflow until a separately reviewed publishing change is needed.
-
-After publication is authorized, distribute only the reviewed artifact and retain
-its provenance and evidence beyond the workflow's artifact-retention window.
+- [Android compatibility matrix](ANDROID-COMPATIBILITY.md): the local preview.3
+  matrix passed native capture/input/cleanup on API 30–37 and stock Web on API
+  30–34, including native API 37 with 16 KiB pages. API 29 codec failure remains.
+- The separately downloaded preview.3 CI archive from
+  [run 37652914514](https://github.com/mobile-dev-harness/mobile-preview-plugin/actions/runs/37652914514),
+  commit `9ec7afad96f486b8050f2f41e6ca8bade24c9b8c`, had SHA-256
+  `d6f6450826638bdb44cce5a2b8669965036f7de87ec8d79e2468d3b5d08f9b9c`.
+  It passed native API 37, stock Web API 35–37, and official Desktop API 37
+  first-frame/input checks plus the recorded Pause/Resume, resize/zoom, removal
+  and reinstallation cases. The same version number does not merge its evidence
+  with the local matrix archive. Details are in
+  [DSH development](DSH-DEVELOPMENT.md), with local records under
+  `target/release-readiness/{native,remote-artifact,native-ci,desktop-ci,web-ci,gui}`.
+  An earlier cold-boot native attempt did not observe Home taking effect; retries
+  passed but the cause was not fully isolated. Its original record remains in
+  `target/release-readiness/native/summary.json`.
+- Earlier preview.1 Web installation and preview.2 API 36 nubia physical-phone
+  results remain archive-specific history, not passes for the new candidate or
+  other physical devices. See the Android matrix and development guide.
+- [iOS Simulator qualification](IOS-SIMULATOR.md): separate read-only video,
+  input-feature and bottom-edge increments retain their original binary hashes,
+  test counts and live evidence. Source Web/Desktop Home/tap/drag and bottom Home
+  swipes passed; user-operated Web App Switcher passed on 2026-10-10. Desktop
+  manual App Switcher and the listed lifecycle gaps remain unqualified.
+- Local iOS evidence is under `target/ios-preview/`, `target/ios-input/`,
+  `target/ios-edge/` and `target/ios-home-gesture/`. Those ignored files are local
+  evidence, not automatically included in a public source checkout or release.

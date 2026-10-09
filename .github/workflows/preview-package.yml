@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Explicit preview version matching the source version (for example 0.1.0-preview.4)
+        description: Explicit preview version matching the source version (for example 0.1.0-preview.5)
         required: true
         type: string
 

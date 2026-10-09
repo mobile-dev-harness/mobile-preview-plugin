@@ -137,6 +137,29 @@ test('player keeps only the latest decoded frame and closes pending and late fra
   const late = frame(); h.decoders[0].callbacks.output(late); assert.equal(late.closed, 1);
 });
 
+test('repeated identical configuration preserves a pending frame and does not blank live video', async () => {
+  const h = harness(), states = [];
+  const player = h.api.createVideoPlayer(h.canvas, geometry, { state: value => states.push(value), keyFrame: assert.fail, failed: assert.fail });
+  await player.consume({ kind: 0, bytes: configuration() });
+  await player.consume({ kind: 1, bytes: idr, timestamp: 1 });
+  const decoder = h.decoders[0], frame = { closed: 0, close() { this.closed++; } };
+  decoder.callbacks.output(frame);
+  await player.consume({ kind: 0, bytes: configuration() });
+  assert.equal(frame.closed, 0);
+  assert.equal(h.rafs.size, 1);
+  assert.equal(h.decoders.length, 1);
+  assert.equal(h.probes.length, 1);
+  h.render();
+  assert.equal(h.drawn[0], frame);
+  assert.equal(states.at(-1), 'live');
+  await player.consume({ kind: 0, bytes: configuration() });
+  assert.equal(h.drawn[0], frame);
+  await player.consume({ kind: 2, bytes: delta, timestamp: 2 });
+  assert.deepEqual(decoder.chunks.map(chunk => chunk.timestamp), [1, 2]);
+  assert.equal(states.filter(value => value === 'buffering').length, 1);
+  player.close();
+});
+
 test('decoder errors still recover through one new IDR and discard a suspended old-epoch packet', async () => {
   const h = harness(); let keyRequests = 0;
   const player = h.api.createVideoPlayer(h.canvas, geometry, { state() {}, keyFrame() { keyRequests++; }, failed: assert.fail });
@@ -150,6 +173,8 @@ test('decoder errors still recover through one new IDR and discard a suspended o
   assert.equal(h.decoders[0].state, 'closed'); assert.equal(h.decoders.length, 2); assert.equal(keyRequests, 1);
   assert.equal(h.timers.size, 0);
   const late = { closed: false, close() { this.closed = true; } }; h.decoders[0].callbacks.output(late); assert.equal(late.closed, true);
+  await player.consume({ kind: 0, bytes: configuration() });
+  assert.equal(h.decoders.length, 2); assert.equal(keyRequests, 1);
   await player.consume({ kind: 2, bytes: delta, timestamp: 3 }); assert.equal(h.decoders[1].chunks.length, 0);
   await player.consume({ kind: 1, bytes: idr, timestamp: 4 }); assert.equal(h.decoders[1].chunks[0].type, 'key'); player.close();
 });
@@ -222,7 +247,8 @@ test('new configuration invalidates a capacity gate without decoding its old pac
   await player.consume({ kind: 1, bytes: idr, timestamp: 1 });
   const old = h.decoders[0]; old.decodeQueueSize = 4;
   const waiting = player.consume({ kind: 2, bytes: delta, timestamp: 2 }); await flush();
-  await player.consume({ kind: 0, bytes: configuration() }); await waiting;
+  const changed = configuration(); changed[changed.length - 1] ^= 1;
+  await player.consume({ kind: 0, bytes: changed }); await waiting;
   old.decodeQueueSize = 0; old.dispatch('dequeue');
   await player.consume({ kind: 1, bytes: idr, timestamp: 100 });
   assert.deepEqual(h.decoders[1].chunks.map(chunk => chunk.timestamp), [100]);
@@ -299,4 +325,39 @@ test('canvas input maps letterboxing, preserves single-pointer ownership and res
   h.window.dispatch('blur'); assert.equal(commands.at(-1).kind, 'reset');
   assert.equal(h.window.listeners.has('keydown'), false);
   detach(); assert.ok([...h.canvas.listeners.values()].every(set => set.size === 0));
+});
+
+test('Simulator pointer controls keep scaled single-touch gestures and resets without keyboard mappings', () => {
+  const h = harness(), commands = [];
+  const input = { enqueue: value => commands.push(value), reset: () => commands.push({ kind: 'reset' }) };
+  const detach = h.api.bindCanvasInput(h.canvas, geometry, input, () => true, { keyboard: false });
+  assert.equal(h.canvas.listeners.has('keydown'), false);
+  assert.equal(h.canvas.listeners.has('keyup'), false);
+  const pointer = (id, x, y) => ({ pointerId: id, button: 0, isPrimary: true, clientX: x, clientY: y });
+  h.canvas.dispatch('pointerdown', pointer(1, 20, 75));
+  assert.equal(commands.length, 0);
+  h.canvas.dispatch('pointerdown', pointer(1, 150, 75));
+  h.canvas.dispatch('pointerdown', pointer(2, 150, 75));
+  h.canvas.dispatch('pointermove', pointer(2, 150, 150));
+  h.canvas.dispatch('pointermove', pointer(1, 150, 225));
+  h.canvas.dispatch('pointerup', pointer(1, 150, 225));
+  assert.deepEqual(commands.map(item => item.event.phase), ['down', 'move', 'up']);
+  assert.deepEqual(commands.map(item => [item.event.x, item.event.y]), [[0.5, 0.25], [0.5, 0.75], [0.5, 0.75]]);
+  for (const key of ['ArrowUp', 'Enter', 'Backspace', 'Tab', ' ']) {
+    h.canvas.dispatch('keydown', { key }); h.canvas.dispatch('keyup', { key });
+  }
+  assert.equal(commands.length, 3);
+  h.canvas.dispatch('pointerdown', pointer(3, 150, 75));
+  h.canvas.dispatch('pointerup', pointer(3, 20, 75));
+  assert.equal(commands.at(-1).event.phase, 'cancel');
+  for (const event of ['pointercancel', 'lostpointercapture', 'pointerleave']) {
+    h.canvas.dispatch('pointerdown', pointer(4, 150, 75));
+    h.canvas.dispatch(event, { pointerId: 4 });
+    assert.equal(commands.at(-1).kind, 'reset');
+  }
+  h.canvas.dispatch('pointerdown', pointer(5, 150, 75));
+  h.canvas.dispatch('blur'); assert.equal(commands.at(-1).kind, 'reset');
+  h.window.dispatch('blur'); assert.equal(commands.at(-1).kind, 'reset');
+  detach();
+  assert.ok([...h.canvas.listeners.values()].every(set => set.size === 0));
 });

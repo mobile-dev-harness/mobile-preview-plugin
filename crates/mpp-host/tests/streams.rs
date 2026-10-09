@@ -84,8 +84,8 @@ esac
         fs::create_dir(&socket_dir).unwrap();
         fs::set_permissions(&socket_dir, fs::Permissions::from_mode(0o700)).unwrap();
         PreviewOptions {
-            bootstrap: self.root.join("bootstrap.jar"),
-            library: self.root.join("library.so"),
+            bootstrap: Some(self.root.join("bootstrap.jar")),
+            library: Some(self.root.join("library.so")),
             socket_dir,
             stream_id: format!("{number:032x}"),
             token: "a".repeat(64),

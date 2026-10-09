@@ -15,11 +15,14 @@ const PAYLOAD = ['index.js', 'client.js', 'src', 'cordis.patch.yml', 'README.md'
 const LEGAL = ['LICENSE', 'THIRD-PARTY-NOTICES.md', 'licenses/third-party'];
 const HELP = `Usage: node scripts/package-preview.mjs --version VERSION [--output-dir PATH]
 
-Build and pack a local macOS arm64 preview with its Rust host and Android arm64
-assets (Android 10–17 / API 29–37). VERSION must be <source-version>-preview.<number>.
+Build and pack a macOS arm64 preview with one Rust host for Android and iOS
+Simulator, plus Android arm64 assets (Android 10–17 / API 29–37).
+VERSION must be <source-version>-preview.<number>.
 Requires installed Rust and NDK matching licenses/third-party/manifest.json,
 Android build-tools and JDK; installs nothing.
-Creates a private .tgz and SHA-256 checksum under target/packages by default.
+iOS Simulator use requires installed Xcode and its Simulator runtime; Apple
+frameworks and iOS runtime assets are not bundled.
+Creates a .tgz and SHA-256 checksum under target/packages by default.
 Records the source commit, dirty state and source tree hash; rejects changes during the build.
 Does not publish a package or GitHub Release.`;
 
@@ -165,6 +168,9 @@ export function stagePreview({ repository, pluginDir, hostExecutable, deviceAsse
     formatVersion: 1, version, hostVersion: plugin.version, source,
     host: { platform: 'darwin', arch: 'arm64', profile: 'release', minimumMacOS: '14.0' },
     android: { minApi: 29, supportedApis: [29, 30, 31, 32, 33, 34, 35, 36, 37], abi: 'arm64-v8a', profile: 'release' },
+    // Runtime requirements and adapter scope, not device qualification results.
+    ios: { deviceKind: 'simulator', runtime: 'installed-xcode', profile: 'release',
+      input: 'capability-gated', bundledAssets: [] },
     dsh: { version: '0.2.1-alpha.1', sourceCommit: '5badb15009ae1756c3afe0ae0cef1faafc290ccc' },
     files: [HOST, `${ASSETS}/bootstrap.jar`, `${ASSETS}/libmpp_android_device.so`]
       .map(path => ({ path, sha256: digest(join(stageDir, path)) })),

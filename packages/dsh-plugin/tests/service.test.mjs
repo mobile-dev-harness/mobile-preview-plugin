@@ -22,17 +22,18 @@ class MockBridge extends EventEmitter {
   block;
   disconnectError;
   statusError;
-  async request(method, params) {
-    this.calls.push({ method, params });
+  async request(method, params, options) {
+    this.calls.push({ method, params, options });
     if (this.closed) throw error('CLOSED');
     await this.block?.(method, params);
     if (this.closed) throw error('CLOSED');
     if (method === 'devices.list') return { devices: [{ id: 'android:a' }] };
     if (method === 'emulator.start') return { id: `android:${params.avd}` };
+    if (method === 'simulator.start') return { id: `ios:${params.udid}`, platform: 'ios', serial: params.udid };
     if (method === 'session.connect') {
       if ([...this.leases.values()].some((lease) => lease.owner === params.owner || lease.device.id === params.device)) throw error('BUSY');
       const session = { id: `session-${++this.generation}`, owner: params.owner,
-        generation: this.generation, state: 'transport_ready', device: { id: params.device } };
+        generation: this.generation, state: 'transport_ready', device: { id: params.device, platform: params.device.startsWith('ios:') ? 'ios' : 'android' } };
       this.leases.set(session.id, session);
       return { ...session };
     }
@@ -69,7 +70,7 @@ function fixture(t, options = {}) {
     createBridge: async () => { const bridge = new MockBridge(); bridges.push(bridge); return bridge; },
     validateSession: async (id) => sessions.has(id),
     requestTimeoutMs: 500, bootTimeoutMs: 1000, heartbeatMs: 10, leaseTtlMs: 2000,
-    sweepIntervalMs: 2000, ...options,
+    sweepIntervalMs: 2000, iosAvailable: false, ...options,
   });
   t.after(() => service.dispose());
   const call = (method, params = {}, signal) => service.handle({ method, params }, { signal });
@@ -77,6 +78,80 @@ function fixture(t, options = {}) {
   const connect = (client, sessionId = 'chat-a', device = 'android:a', signal) => call('session.connect', { client, sessionId, device }, signal);
   return { service, bridges, sessions, call, open, connect };
 }
+
+const UDID = 'DEADBEEF-1234-5678-ABCD-123456789ABC';
+
+test('iOS backend selection is available without Android assets and preserves platform isolation', async t => {
+  const f = fixture(t, { iosAvailable: true });
+  const opened = await f.call('client.open');
+  assert.deepEqual(opened.capabilities, { video: true, input: false });
+  const { client } = opened;
+  const selection = await f.service.requestPlatform('chat-a', 'ios');
+  assert.equal(selection.available, true);
+  assert.equal(f.bridges.length, 0);
+  await assert.rejects(f.connect(client), { code: 'INVALID_ARGUMENT' });
+  assert.equal(f.bridges.length, 0);
+  const connected = await f.connect(client, 'chat-a', `ios:${UDID}`);
+  assert.equal(connected.session.device.platform, 'ios');
+  await assert.rejects(f.service.requestPlatform('chat-a', 'android'), { code: 'BUSY' });
+  assert.deepEqual(await f.call('session.list', { client, sessionId: 'chat-a' }), connected);
+  await f.call('session.disconnect', { client, binding: connected.binding });
+  await f.service.requestPlatform('chat-a', 'android');
+  await assert.rejects(f.connect(client, 'chat-a', `ios:${UDID}`), { code: 'INVALID_ARGUMENT' });
+});
+
+test('device inventory forwards only a validated optional platform filter', async t => {
+  const f = fixture(t, { iosAvailable: true });
+  const client = await f.open();
+  for (const platform of [undefined, 'android', 'ios']) {
+    const filter = platform === undefined ? {} : { platform };
+    await f.call('devices.list', { client, ...filter });
+    assert.deepEqual(f.bridges[0].calls.at(-1).params, filter);
+  }
+  for (const params of [{ platform: null }, { platform: 'windows' }, { platform: 'ios', udid: UDID }]) {
+    await assert.rejects(f.call('devices.list', { client, ...params }), { code: 'INVALID_ARGUMENT' });
+  }
+  assert.equal(f.bridges[0].calls.length, 3);
+});
+
+test('simulator startup requires a bounded UDID and explicit consent and uses the boot deadline', async t => {
+  const f = fixture(t, { iosAvailable: true });
+  const client = await f.open();
+  for (const consent of [false, null, 1, 'true']) {
+    await assert.rejects(f.call('simulator.start', { client, udid: UDID, consent }), { code: 'PERMISSION_DENIED' });
+  }
+  for (const params of [{ udid: UDID }, { udid: UDID, consent: true, avd: 'other' },
+    ...['', 'booted', 'ios:' + UDID, 'x'.repeat(257), UDID + '\n'].map(udid => ({ udid, consent: true }))]) {
+    await assert.rejects(f.call('simulator.start', { client, ...params }), { code: 'INVALID_ARGUMENT' });
+  }
+  assert.equal(f.bridges.length, 0);
+  const started = await f.call('simulator.start', { client, udid: UDID, consent: true });
+  assert.equal(started.id, `ios:${UDID}`);
+  assert.deepEqual(f.bridges[0].calls[0], {
+    method: 'simulator.start', params: { udid: UDID, consent: true }, options: { timeoutMs: 1000 },
+  });
+});
+
+test('cancelling a consented simulator boot preserves the host and serialized discovery', async t => {
+  const f = fixture(t, { iosAvailable: true });
+  const client = await f.open();
+  await f.call('devices.list', { client, platform: 'ios' });
+  const entered = deferred(), complete = deferred(), controller = new AbortController();
+  f.bridges[0].block = async method => {
+    if (method === 'simulator.start') { entered.resolve(); await complete.promise; }
+  };
+  const boot = f.call('simulator.start', { client, udid: UDID, consent: true }, controller.signal);
+  const rejected = assert.rejects(boot, { code: 'ABORTED' });
+  await entered.promise;
+  controller.abort(); await rejected;
+  assert.deepEqual(await f.call('client.heartbeat', { client }), { alive: true });
+  const inventory = f.call('devices.list', { client, platform: 'ios' });
+  await sleep(0);
+  assert.deepEqual(f.bridges[0].calls.map(item => item.method), ['devices.list', 'simulator.start']);
+  complete.resolve(); await inventory;
+  assert.equal(f.bridges[0].closed, false);
+  assert.equal(f.bridges[0].leases.size, 0);
+});
 
 test('one host owns conflicts across clients and conversations; remount returns opaque binding', async (t) => {
   const f = fixture(t);
@@ -330,4 +405,149 @@ test('dispose closes a bridge whose factory resolves late and rejects further cl
   await disposing; await rejected;
   assert.equal(bridge.closed, true);
   await assert.rejects(f.open(), { code: 'CLOSED' });
+});
+
+test('platform landing is session-scoped and does not require Android discovery', async t => {
+  const f = fixture(t);
+  const client = await f.open();
+  const empty = await f.call('platform.get', { client, sessionId: 'chat-a' });
+  assert.equal(empty.platform, null);
+  assert.equal(empty.source, null);
+  assert.equal(empty.available, false);
+  const android = await f.call('platform.select', { client, sessionId: 'chat-a', platform: 'android' });
+  assert.equal(android.source, 'user');
+  assert.equal(android.available, true);
+  const ios = await f.service.requestPlatform('chat-b', 'ios');
+  assert.equal(ios.available, false);
+  assert.equal(ios.source, 'agent');
+  assert.ok(ios.revision > android.revision);
+  assert.equal(ios.epoch, android.epoch);
+  assert.deepEqual(await f.call('platform.get', { client, sessionId: 'chat-a' }), android);
+  assert.deepEqual(await f.call('platform.get', { client, sessionId: 'chat-b' }), ios);
+  assert.equal(f.bridges.length, 0);
+});
+
+test('each explicit agent request advances revision and manual selection supersedes it', async t => {
+  const f = fixture(t);
+  const client = await f.open();
+  const one = await f.service.requestPlatform('chat-a', 'android');
+  const two = await f.service.requestPlatform('chat-a', 'android');
+  assert.ok(two.revision > one.revision);
+  const manual = await f.call('platform.select', { client, sessionId: 'chat-a', platform: 'ios' });
+  assert.ok(manual.revision > two.revision);
+  assert.equal(manual.source, 'user');
+  two.platform = 'ios';
+  assert.deepEqual(await f.call('platform.get', { client, sessionId: 'chat-a' }), manual);
+  const nextClient = await f.open();
+  await f.call('client.close', { client });
+  assert.deepEqual(await f.call('platform.get', { client: nextClient, sessionId: 'chat-a' }), manual);
+});
+
+test('platform requests validate platform, browser client, fields and conversation', async t => {
+  const f = fixture(t);
+  const client = await f.open();
+  for (const platform of [null, '', 'Android', 'windows', { platform: 'ios' }]) {
+    await assert.rejects(f.call('platform.select', { client, sessionId: 'chat-a', platform }), { code: 'INVALID_ARGUMENT' });
+    await assert.rejects(f.service.requestPlatform('chat-a', platform), { code: 'INVALID_ARGUMENT' });
+  }
+  await assert.rejects(f.call('platform.get', { client: randomBytes(32).toString('base64url'), sessionId: 'chat-a' }), { code: 'CLIENT_EXPIRED' });
+  await assert.rejects(f.call('platform.select', { client, sessionId: 'chat-a', platform: 'android', source: 'agent' }), { code: 'INVALID_ARGUMENT' });
+  await assert.rejects(f.service.requestPlatform('missing-chat', 'ios'), { code: 'NOT_FOUND' });
+  await f.service.requestPlatform('chat-a', 'ios');
+  f.sessions.delete('chat-a');
+  await assert.rejects(f.call('platform.get', { client, sessionId: 'chat-a' }), { code: 'NOT_FOUND' });
+  f.sessions.add('chat-a');
+  assert.equal((await f.call('platform.get', { client, sessionId: 'chat-a' })).platform, null);
+});
+
+test('cancelled or timed-out platform validation cannot commit a selection', async t => {
+  const gate = deferred();
+  const f = fixture(t, { validateSession: () => gate.promise, requestTimeoutMs: 30 });
+  const client = await f.open();
+  const abort = new AbortController();
+  const pending = f.service.requestPlatform('chat-a', 'ios', { signal: abort.signal });
+  abort.abort();
+  await assert.rejects(pending, { code: 'ABORTED' });
+  await assert.rejects(f.service.requestPlatform('chat-b', 'android'), { code: 'TIMEOUT' });
+  gate.resolve(true);
+  assert.equal((await f.call('platform.get', { client, sessionId: 'chat-a' })).platform, null);
+  assert.equal((await f.call('platform.get', { client, sessionId: 'chat-b' })).platform, null);
+});
+
+test('platform reads run while native work is busy and cannot change a connecting chat', async t => {
+  const f = fixture(t);
+  const client = await f.open();
+  await f.call('devices.list', { client });
+  const entered = deferred(), finish = deferred();
+  f.bridges[0].block = async method => {
+    if (method === 'session.connect') { entered.resolve(); await finish.promise; }
+  };
+  const connecting = f.connect(client);
+  await entered.promise;
+  assert.equal((await f.call('platform.get', { client, sessionId: 'chat-a' })).platform, null);
+  await assert.rejects(f.service.requestPlatform('chat-a', 'ios'), { code: 'BUSY' });
+  assert.equal((await f.service.requestPlatform('chat-b', 'ios')).platform, 'ios');
+  finish.resolve();
+  await connecting;
+});
+
+test('platform switch preserves active connection; iOS intent cannot connect Android', async t => {
+  const f = fixture(t);
+  const client = await f.open();
+  const connected = await f.connect(client);
+  const android = await f.service.requestPlatform('chat-a', 'android');
+  await assert.rejects(f.service.requestPlatform('chat-a', 'ios'), { code: 'BUSY' });
+  assert.deepEqual(await f.call('session.list', { client, sessionId: 'chat-a' }), connected);
+  assert.deepEqual(await f.call('platform.get', { client, sessionId: 'chat-a' }), android);
+  await f.call('session.disconnect', { client, binding: connected.binding });
+  await f.service.requestPlatform('chat-a', 'ios');
+  const before = f.bridges[0].calls.length;
+  await assert.rejects(f.connect(client), { code: 'UNSUPPORTED' });
+  assert.equal(f.bridges[0].calls.length, before);
+});
+
+test('platform registry has a bounded working set and uses fresh epochs per host', async t => {
+  const f = fixture(t, { validateSession: async () => true });
+  const client = await f.open();
+  const first = await f.service.requestPlatform('chat-0', 'ios');
+  for (let i = 1; i <= 256; i++) await f.service.requestPlatform(`chat-${i}`, 'android');
+  const evicted = await f.call('platform.get', { client, sessionId: 'chat-0' });
+  assert.equal(evicted.platform, null);
+  assert.ok(evicted.revision > first.revision);
+  const other = fixture(t);
+  assert.notEqual((await other.service.requestPlatform('chat-a', 'ios')).epoch, first.epoch);
+  await f.service.dispose();
+  await assert.rejects(f.service.requestPlatform('chat-a', 'android'), { code: 'CLOSED' });
+});
+
+test('a newer user choice supersedes an older agent validation even when it finishes late', async t => {
+  const entered = deferred(), finish = deferred();
+  let reads = 0;
+  const f = fixture(t, { validateSession: async () => {
+    if (++reads === 1) { entered.resolve(); return finish.promise; }
+    return true;
+  } });
+  const client = await f.open();
+  const agent = f.service.requestPlatform('chat-a', 'ios');
+  const rejected = assert.rejects(agent, { code: 'ABORTED' });
+  await entered.promise;
+  const user = await f.call('platform.select', { client, sessionId: 'chat-a', platform: 'android' });
+  finish.resolve(true);
+  await rejected;
+  assert.deepEqual(await f.call('platform.get', { client, sessionId: 'chat-a' }), user);
+});
+
+test('disposing the service cancels unresolved agent platform requests', async t => {
+  const entered = deferred();
+  let validationSignal;
+  const f = fixture(t, { validateSession: async (_id, signal) => {
+    validationSignal = signal; entered.resolve();
+    return new Promise(() => {});
+  } });
+  const pending = f.service.requestPlatform('chat-a', 'android');
+  const rejected = assert.rejects(pending, { code: 'CLOSED' });
+  await entered.promise;
+  await f.service.dispose();
+  await rejected;
+  assert.equal(validationSignal.aborted, true);
 });

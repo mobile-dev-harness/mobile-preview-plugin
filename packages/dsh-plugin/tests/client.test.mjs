@@ -6,6 +6,10 @@ import vm from 'node:vm';
 const artifact = await readFile(new URL('../client.js', import.meta.url), 'utf8');
 const ID = '@mobile-dev-harness/dsh-mobile-preview';
 const DEVICE = { id: 'android:phone', platform: 'android', kind: 'physical', state: 'online', name: 'Pixel', serial: 'phone', avd: null };
+const UDID = 'DEADBEEF-1234-5678-ABCD-123456789ABC';
+const SIMULATOR = { id: `ios:${UDID}`, platform: 'ios', kind: 'simulator', state: 'online',
+  name: 'iPhone Simulator', serial: UDID, avd: null,
+  capabilities: { video: true, input: false, lifecycle: true, screenshot: false } };
 const flush = async () => { for (let i = 0; i < 8; i += 1) await new Promise(resolve => setImmediate(resolve)); };
 
 function harness(timing = {}, browser = {}, services = {}) {
@@ -17,6 +21,9 @@ function harness(timing = {}, browser = {}, services = {}) {
   const windowEvents = new Map();
   const documentEvents = new Map();
   const backend = new Map();
+  const platforms = new Map();
+  const mountedListeners = new Set();
+  let platformRevision = 0;
   let now = 1000;
   let nextTimer = 0;
   let latestTimeout = null;
@@ -51,6 +58,14 @@ function harness(timing = {}, browser = {}, services = {}) {
         requestTimeoutMs: 15000, bootTimeoutMs: 130000, previewTimeoutMs: 45000, ...timing, capabilities: { video: false, input: false } };
       case 'client.heartbeat': return { alive: true };
       case 'client.close': backend.clear(); return { closed: true };
+      case 'platform.get': return platforms.get(params.sessionId) || { sessionId: params.sessionId, platform: null,
+        source: null, revision: platformRevision, epoch: 'host-1', available: false };
+      case 'platform.select': {
+        const result = { sessionId: params.sessionId, platform: params.platform, source: 'user', revision: ++platformRevision,
+          epoch: 'host-1', available: params.platform === 'android' || services.iosAvailable === true };
+        platforms.set(params.sessionId, result);
+        return result;
+      }
       case 'devices.list': return { devices: [DEVICE], warnings: [] };
       case 'session.list': return backend.get(params.sessionId) || null;
       case 'session.connect': {
@@ -99,8 +114,8 @@ function harness(timing = {}, browser = {}, services = {}) {
     slots: { inject: (_name, fn) => fn(), register(options, component) { slots.set(options.name, { options, component }); return () => slots.delete(options.name); } },
     sidebarRightTabs: { register(definition) { tab = definition; return () => {}; } },
     sidebarRight: {
-      mounted: { getSnapshot: () => mounted },
-      openTab: kind => opened.push(kind),
+      mounted: { getSnapshot: () => mounted, subscribe(fn) { mountedListeners.add(fn); return () => mountedListeners.delete(fn); } },
+      openTab: kind => { if (services.openTab?.(kind) === false) return false; opened.push(kind); },
       registerCloseHandler(_kind, fn) { closeHandler = fn; return () => {}; },
     },
   };
@@ -112,7 +127,12 @@ function harness(timing = {}, browser = {}, services = {}) {
     get injectedServices() { return plugin.inject; },
     ui: id => body.options.inject(id),
     state: () => body.options.inject('chat-a').hooks.preview.getSnapshot(),
-    setHandler: fn => { handler = fn; }, setMediaHandler: fn => { mediaHandler = fn; }, setMounted: id => { mounted = id; },
+    setHandler: fn => { handler = fn; }, setMediaHandler: fn => { mediaHandler = fn; },
+    setMounted: id => { mounted = id; for (const fn of mountedListeners) fn(); },
+    selectByAgent(sessionId, platform) {
+      platforms.set(sessionId, { sessionId, platform, source: 'agent', revision: ++platformRevision, epoch: 'host-1', available: platform === 'android' || services.iosAvailable === true });
+    },
+    get mountedListeners() { return mountedListeners.size; },
     advance: ms => { now += ms; },
     tick: async () => { for (const { fn } of intervals.values()) fn(); await flush(); },
     closeTab: id => closeHandler(id, {}),
@@ -135,6 +155,222 @@ test('registers shared header/composer entries and mounted-session guarded sideb
   assert.deepEqual(app.opened, ['mobile-preview']);
   assert.equal(app.ui('chat-a'), app.ui('chat-a'));
   app.dispose();
+});
+
+function renderPanel(app, sessionId = 'chat-a') {
+  return app.body.component({ ...app.ui(sessionId), sessionId,
+    usePreview: selector => selector(app.state()),
+    useTabInfo: () => ({ tab: { visible: true, signal: new AbortController().signal } }), t: app.t,
+  });
+}
+
+function elements(value) {
+  if (Array.isArray(value)) return value.flatMap(elements);
+  if (!value || typeof value !== 'object') return [];
+  return [value, ...elements(value.props?.children)];
+}
+
+test('first landing waits for an explicit platform without discovering or starting devices', async () => {
+  const app = harness();
+  await app.ui('chat-a').activate();
+  const tree = renderPanel(app), nodes = elements(tree);
+  assert.equal(app.state().sessions['chat-a'].platform, null);
+  const choices = nodes.filter(node => node.type === 'input' && node.props.name === 'mobile-platform-chat-a');
+  assert.deepEqual(choices.map(node => [node.props.value, node.props.checked]), [['android', false], ['ios', false]]);
+  assert.ok(JSON.stringify(tree).includes('Choose a platform'));
+  assert.ok(!nodes.some(node => node.type === 'button' && node.props.children.includes('Connect')));
+  assert.equal(app.requests.filter(row => ['devices.list', 'emulator.start', 'session.connect', 'preview.start'].includes(row.method)).length, 0);
+  app.dispose();
+});
+
+test('manual platform cards filter Android devices and show truthful iOS landing without discovery', async () => {
+  const app = harness();
+  app.setHandler(method => method === 'devices.list' ? { devices: [DEVICE,
+    { ...DEVICE, id: 'ios:phone', name: 'iPhone Simulator', platform: 'ios' }], warnings: [] } : undefined);
+  await app.ui('chat-a').activate();
+  const android = elements(renderPanel(app)).find(node => node.type === 'input' && node.props.value === 'android');
+  android.props.onChange(); await flush();
+  assert.equal(app.state().sessions['chat-a'].platform, 'android');
+  assert.ok(JSON.stringify(renderPanel(app)).includes('Pixel'));
+  assert.ok(!JSON.stringify(renderPanel(app)).includes('iPhone Simulator'));
+  const discoveries = app.requests.filter(row => row.method === 'devices.list').length;
+  const ios = elements(renderPanel(app)).find(node => node.type === 'input' && node.props.value === 'ios');
+  ios.props.onChange(); await flush();
+  await app.ui('chat-a').activate();
+  const iosTree = renderPanel(app);
+  assert.equal(app.state().sessions['chat-a'].platform, 'ios');
+  assert.equal(app.state().sessions['chat-a'].platformAvailable, false);
+  assert.ok(JSON.stringify(iosTree).includes('iOS Simulator requires a macOS host'));
+  assert.ok(!JSON.stringify(iosTree).includes('Pixel'));
+  assert.ok(!elements(iosTree).some(node => node.type === 'button' && node.props.children.includes('Connect')));
+  assert.equal(app.requests.filter(row => row.method === 'devices.list').length, discoveries);
+  assert.equal(app.requests.filter(row => ['emulator.start', 'session.connect'].includes(row.method)).length, 0);
+  app.dispose();
+});
+
+test('available iOS cards discover only the selected platform and keep other chat inventories separate', async () => {
+  const app = harness({}, {}, { iosAvailable: true });
+  app.setHandler(method => method === 'devices.list' ? { devices: [DEVICE, SIMULATOR], warnings: [] } : undefined);
+  const ios = app.ui('chat-a');
+  await ios.selectPlatform('ios');
+  assert.equal(app.state().sessions['chat-a'].platformAvailable, true);
+  assert.deepEqual(app.requests.findLast(item => item.method === 'devices.list').params, { client: 'client-1', platform: 'ios' });
+  let tree = renderPanel(app);
+  assert.ok(JSON.stringify(tree).includes('iPhone Simulator'));
+  assert.ok(JSON.stringify(tree).includes('iOS Simulator preview'));
+  assert.ok(!JSON.stringify(tree).includes('Pixel'));
+  assert.ok(!JSON.stringify(tree).includes('iOS Simulator requires a macOS host'));
+  assert.ok(elements(tree).some(node => node.type === 'button' && node.props.children.includes('Connect')));
+  await app.ui('chat-b').selectPlatform('android');
+  assert.equal(app.requests.findLast(item => item.method === 'devices.list').params.platform, 'android');
+  assert.ok(JSON.stringify(renderPanel(app, 'chat-b')).includes('Pixel'));
+  assert.ok(!JSON.stringify(renderPanel(app, 'chat-b')).includes('iPhone Simulator'));
+  assert.ok(JSON.stringify(renderPanel(app)).includes('iPhone Simulator'));
+  await ios.activate();
+  assert.equal(app.requests.findLast(item => item.method === 'devices.list').params.platform, 'ios');
+  assert.equal(app.requests.filter(item => ['simulator.start', 'emulator.start', 'session.connect'].includes(item.method)).length, 0);
+  app.dispose();
+});
+
+test('starting the selected iOS Simulator sends its exact UDID and consent with the boot deadline', async () => {
+  const app = harness({ bootTimeoutMs: 300000 }, {}, { iosAvailable: true });
+  const stopped = { ...SIMULATOR, state: 'stopped' };
+  app.setHandler(method => method === 'devices.list' ? { devices: [stopped], warnings: [] }
+    : method === 'simulator.start' ? SIMULATOR : undefined);
+  await app.ui('chat-a').selectPlatform('ios');
+  app.React.useState = initial => [initial === null ? { sessionId: 'chat-a', platform: 'ios', id: SIMULATOR.id } : initial, () => {}];
+  const tree = renderPanel(app);
+  assert.ok(JSON.stringify(tree).includes('Starting boots the selected iOS Simulator'));
+  assert.equal(app.requests.filter(item => item.method === 'simulator.start').length, 0);
+  elements(tree).find(item => item.type === 'button' && item.props.children.includes('Start selected simulator')).props.onClick();
+  await flush();
+  const started = app.requests.find(item => item.method === 'simulator.start');
+  assert.deepEqual(started.params, { client: 'client-1', udid: UDID, consent: true });
+  assert.equal(started.timeoutMs, 302000);
+  assert.equal(app.requests.findLast(item => item.method === 'devices.list').params.platform, 'ios');
+  assert.equal(app.requests.filter(item => ['emulator.start', 'session.connect'].includes(item.method)).length, 0);
+  app.dispose();
+});
+
+test('platform choices remain chat scoped across switches and connected panes retain their device platform', async () => {
+  const app = harness();
+  await app.ui('chat-a').selectPlatform('android');
+  await app.ui('chat-a').connect(DEVICE.id);
+  await app.ui('chat-b').selectPlatform('ios');
+  app.setMounted('chat-b'); await flush();
+  assert.equal(app.state().sessions['chat-a'].platform, 'android');
+  assert.equal(app.state().sessions['chat-b'].platform, 'ios');
+  assert.ok(JSON.stringify(renderPanel(app, 'chat-b')).includes('iOS Simulator requires a macOS host'));
+  assert.equal(elements(renderPanel(app, 'chat-a')).filter(node => node.type === 'fieldset').length, 0);
+  assert.ok(JSON.stringify(renderPanel(app, 'chat-a')).includes('Android'));
+  assert.equal(app.state().sessions['chat-a'].binding, 'binding-chat-a');
+  app.dispose();
+});
+
+test('agent selects and opens the mounted chat before first panel use, once per revision', async () => {
+  const app = harness();
+  app.selectByAgent('chat-a', 'android');
+  await flush();
+  assert.deepEqual(app.opened, ['mobile-preview']);
+  assert.equal(app.state().sessions['chat-a'].platformSource, 'agent');
+  assert.equal(app.state().sessions['chat-a'].platform, 'android');
+  assert.equal(app.requests.filter(row => ['devices.list', 'emulator.start', 'session.connect'].includes(row.method)).length, 0);
+  app.closeTab('chat-a'); await app.tick();
+  assert.equal(app.opened.length, 1);
+  app.selectByAgent('chat-a', 'android'); await app.tick();
+  assert.equal(app.opened.length, 2);
+  app.dispose();
+});
+
+test('a failed sidebar open is retried before an agent revision is considered handled', async () => {
+  let ready = false;
+  const app = harness({}, {}, { openTab: () => ready });
+  app.selectByAgent('chat-a', 'ios'); await flush();
+  assert.equal(app.opened.length, 0);
+  ready = true; await app.tick();
+  assert.equal(app.opened.length, 1);
+  await app.tick(); assert.equal(app.opened.length, 1);
+  app.dispose();
+});
+
+test('inactive agent intent opens only when its chat mounts and late old-chat replies never open another chat', async () => {
+  const app = harness();
+  await flush();
+  app.selectByAgent('chat-b', 'ios');
+  await app.tick(); assert.equal(app.opened.length, 0);
+  app.setMounted('chat-b'); await flush();
+  assert.equal(app.opened.length, 1);
+  assert.equal(app.state().sessions['chat-b'].platform, 'ios');
+  let finish;
+  app.setHandler((method, params) => method === 'platform.get' && params.sessionId === 'chat-a'
+    ? new Promise(resolve => { finish = resolve; }) : undefined);
+  app.setMounted('chat-a'); await flush();
+  app.setMounted('chat-b'); await flush();
+  finish({ sessionId: 'chat-a', platform: 'android', source: 'agent', revision: 3, epoch: 'host-1', available: true });
+  await flush();
+  assert.equal(app.opened.length, 1);
+  assert.equal(app.state().sessions['chat-b'].platform, 'ios');
+  app.dispose();
+});
+
+test('manual selection outranks a late agent read and older revisions cannot restore agent intent', async () => {
+  const app = harness();
+  await flush();
+  let finish;
+  const stale = { sessionId: 'chat-a', platform: 'android', source: 'agent', revision: 0, epoch: 'host-1', available: true };
+  app.setHandler(method => method === 'platform.get' ? new Promise(resolve => { finish = resolve; }) : undefined);
+  await app.tick();
+  await app.ui('chat-a').selectPlatform('ios');
+  finish(stale); await flush();
+  assert.equal(app.state().sessions['chat-a'].platform, 'ios');
+  assert.equal(app.state().sessions['chat-a'].platformSource, 'user');
+  assert.equal(app.opened.length, 0);
+  app.setHandler(method => method === 'platform.get' ? stale : undefined);
+  await app.tick();
+  assert.equal(app.state().sessions['chat-a'].platform, 'ios');
+  assert.equal(app.opened.length, 0);
+  app.dispose();
+});
+
+test('a new host epoch accepts a lower revision while invalid platform replies are rejected', async () => {
+  const app = harness();
+  await app.ui('chat-a').selectPlatform('android');
+  await app.ui('chat-a').selectPlatform('ios');
+  app.setHandler(method => method === 'platform.get' ? { sessionId: 'chat-a', platform: 'android', source: 'agent',
+    revision: 1, epoch: 'host-2', available: true } : undefined);
+  await app.tick();
+  assert.equal(app.state().sessions['chat-a'].platform, 'android');
+  assert.equal(app.state().sessions['chat-a'].platformEpoch, 'host-2');
+  assert.equal(app.opened.length, 1);
+  app.setHandler(method => method === 'platform.get' ? { sessionId: 'chat-b', platform: 'ios', source: 'agent',
+    revision: 2, epoch: 'host-2', available: false } : undefined);
+  await app.tick();
+  assert.equal(app.state().sessions['chat-a'].platform, 'android');
+  assert.equal(app.state().sessions['chat-a'].platformError.key, 'invalidResponse');
+  assert.equal(app.opened.length, 1);
+  app.setHandler(undefined); await app.tick();
+  assert.equal(app.state().sessions['chat-a'].platformError, null);
+  app.dispose();
+});
+
+test('platform polling sleeps while hidden, wakes on visibility, and disposes subscriptions and late replies', async () => {
+  const app = harness();
+  await flush();
+  app.document.visibilityState = 'hidden'; app.documentEvents.get('visibilitychange')();
+  const count = app.requests.filter(row => row.method === 'platform.get').length;
+  app.selectByAgent('chat-a', 'ios'); await app.tick();
+  assert.equal(app.requests.filter(row => row.method === 'platform.get').length, count);
+  assert.equal(app.opened.length, 0);
+  app.document.visibilityState = 'visible'; app.documentEvents.get('visibilitychange')(); await flush();
+  assert.equal(app.opened.length, 1);
+  let finish;
+  app.setHandler(method => method === 'platform.get' ? new Promise(resolve => { finish = resolve; }) : undefined);
+  await app.tick(); app.dispose();
+  finish({ sessionId: 'chat-a', platform: 'android', source: 'agent', revision: 2, epoch: 'host-1', available: true });
+  await flush();
+  assert.equal(app.opened.length, 1);
+  assert.equal(app.intervals.size, 0);
+  assert.equal(app.mountedListeners, 0);
 });
 
 test('chat-scoped bindings survive panel close and switching, heartbeat covers inactive chats', async () => {
@@ -233,6 +469,7 @@ test('plugin unload cleans root timer/listeners and closes even a late client.op
 test('panel renders real device choices and explains the preview backend requirement', async () => {
   const app = harness();
   const ui = app.ui('chat-a');
+  await ui.selectPlatform('android');
   await ui.activate();
   const tree = app.body.component({ ...ui, sessionId: 'chat-a',
     usePreview: selector => selector(app.state()),
@@ -297,7 +534,7 @@ test('connected panel gives the viewport remaining height and keeps controls out
 test('negotiated heartbeat cadence renews short leases before their deadline', async () => {
   const app = harness({ heartbeatMs: 5000, leaseTtlMs: 15000 });
   await app.ui('chat-a').connect(DEVICE.id);
-  assert.deepEqual([...app.intervals.values()].map(timer => timer.ms), [5000]);
+  assert.deepEqual([...app.intervals.values()].map(timer => timer.ms).sort((a, b) => a - b), [2000, 5000]);
   for (let index = 0; index < 4; index += 1) {
     app.advance(5000);
     await app.tick();
@@ -327,6 +564,7 @@ test('slow status revalidation never suppresses lease renewal or duplicates stat
 
 test('negotiated ordinary and boot deadlines retain a bounded network margin', async () => {
   const app = harness({ requestTimeoutMs: 60000, bootTimeoutMs: 300000 });
+  await app.ui('chat-a').selectPlatform('android');
   await app.ui('chat-a').activate();
   await app.ui('chat-a').start('Chosen_AVD');
   const normal = app.requests.find(row => row.method === 'devices.list').timeoutMs;
@@ -337,12 +575,12 @@ test('negotiated ordinary and boot deadlines retain a bounded network margin', a
   app.dispose();
 });
 
-function previewHarness() {
-  const raf = new Map(); let rafId = 0; let cleared = 0;
+function previewHarness({ device = DEVICE, input = true } = {}) {
+  const raf = new Map(), decoders = []; let rafId = 0; let cleared = 0;
   const browser = {
     VideoDecoder: class {
       static async isConfigSupported(config) { return { supported: true, config }; }
-      constructor(callbacks) { this.callbacks = callbacks; this.decodeQueueSize = 0; this.state = 'unconfigured'; }
+      constructor(callbacks) { this.callbacks = callbacks; this.decodeQueueSize = 0; this.state = 'unconfigured'; decoders.push(this); }
       configure() { this.state = 'configured'; }
       decode() { this.callbacks.output({ close() {} }); }
       close() { this.state = 'closed'; }
@@ -361,7 +599,8 @@ function previewHarness() {
   const geometry = { width: 100, height: 200, display_width: 100, display_height: 200, rotation: 0 };
   let nextStream = 0, finish;
   app.setHandler(method => method === 'preview.start'
-    ? { stream: `stream-${++nextStream}`, epoch: 70 + nextStream, generation: 1, geometry, capabilities: { video: true, input: true } } : undefined);
+    ? { stream: `stream-${++nextStream}`, epoch: 70 + nextStream, generation: 1, geometry, capabilities: { video: true, input } } : method === 'session.connect' && device !== DEVICE
+      ? { binding: 'binding-chat-a', session: { id: 'lease', generation: 1, state: 'transport_ready', device } } : undefined);
   const encode = (kind, bytes) => {
     const out = new Uint8Array(28 + bytes.length), view = new DataView(out.buffer);
     view.setUint32(0, 0x4d505031); out[4] = kind; view.setBigUint64(8, 1n); view.setUint32(16, bytes.length); out.set(bytes, 28); return out;
@@ -377,8 +616,85 @@ function previewHarness() {
       async cancel() { finish?.({ done: true }); } };
     return { ok: true, headers: { get: () => 'application/octet-stream' }, body: { getReader: () => reader } };
   });
-  return { app, canvas, canvasEvents, geometry, eof: () => finish?.({ done: true }), get cleared() { return cleared; } };
+  return { app, canvas, canvasEvents, geometry, eof: () => finish?.({ done: true }),
+    failDecoder: () => decoders.at(-1).callbacks.error(new Error('Decode failed')), get cleared() { return cleared; } };
 }
+
+test('read-only iOS video keeps key-frame and reset controls without any touch, keyboard, Home or Back controls', async () => {
+  const f = previewHarness({ device: SIMULATOR, input: false }), ui = f.app.ui('chat-a');
+  await ui.connect(SIMULATOR.id); await ui.startPreview(f.canvas); await flush();
+  assert.equal(f.app.state().sessions['chat-a'].preview.status, 'live');
+  assert.equal(f.canvasEvents.size, 0);
+  const nodes = elements(renderPanel(f.app));
+  assert.ok(JSON.stringify(renderPanel(f.app)).includes('Read-only preview'));
+  assert.ok(!nodes.some(item => item.type === 'button' && ['Home', 'Back'].includes(item.props.children[0])));
+  const canvas = nodes.find(item => item.type === 'canvas');
+  assert.equal(canvas.props.tabIndex, -1);
+  assert.equal(canvas.props.style.touchAction, 'auto');
+  assert.equal(canvas.props['aria-label'], f.app.t('readOnlyHelp'));
+  ui.pressKey(3); ui.pressKey(4); await flush();
+  assert.equal(f.app.requests.filter(item => item.method === 'input.send').length, 0);
+  f.failDecoder(); await flush();
+  assert.equal(f.app.requests.findLast(item => item.method === 'input.send').params.requests[0].command.kind, 'key_frame');
+  await ui.pausePreview(); await flush();
+  const commands = f.app.requests.filter(item => item.method === 'input.send').flatMap(item => item.params.requests);
+  assert.deepEqual(commands.map(item => item.command.kind), ['key_frame', 'reset']);
+  assert.equal(f.app.requests.filter(item => item.method === 'preview.stop').length, 1);
+  assert.equal(f.app.state().sessions['chat-a'].binding, 'binding-chat-a');
+  assert.equal(f.canvasEvents.size, 0);
+  f.app.dispose();
+});
+
+test('input-capable Simulator previews support pointer gestures and Home without Back or Android keyboard events', async () => {
+  const f = previewHarness({ device: SIMULATOR, input: true }), ui = f.app.ui('chat-a');
+  await ui.connect(SIMULATOR.id); await ui.startPreview(f.canvas); await flush();
+  assert.equal(f.app.state().sessions['chat-a'].preview.status, 'live');
+  assert.equal(f.canvasEvents.has('pointerdown'), true);
+  assert.equal(f.canvasEvents.has('keydown'), false);
+  assert.equal(f.canvasEvents.has('keyup'), false);
+  const nodes = elements(renderPanel(f.app));
+  const canvas = nodes.find(item => item.type === 'canvas');
+  assert.equal(canvas.props.tabIndex, 0);
+  assert.equal(canvas.props.style.touchAction, 'none');
+  assert.equal(canvas.props['aria-label'], f.app.t('iosCanvasHelp'));
+  assert.ok(!JSON.stringify(renderPanel(f.app)).includes('Read-only preview'));
+  const home = nodes.find(item => item.type === 'button' && item.props.children[0] === 'Home');
+  assert.equal(home.props.disabled, false);
+  assert.ok(!nodes.some(item => item.type === 'button' && item.props.children[0] === 'Back'));
+  const event = y => ({ pointerId: 1, button: 0, isPrimary: true, clientX: 50, clientY: y, preventDefault() {} });
+  f.canvasEvents.get('pointerdown')(event(50));
+  f.canvasEvents.get('pointermove')(event(150));
+  f.canvasEvents.get('pointerup')(event(150));
+  home.props.onClick();
+  for (const code of [4, 19, 66, 67]) ui.pressKey(code);
+  await flush();
+  const events = f.app.requests.filter(item => item.method === 'input.send').flatMap(item => item.params.requests.map(request => request.command.event));
+  assert.deepEqual(events.map(item => item.kind), ['touch', 'touch', 'touch', 'key', 'key']);
+  assert.deepEqual(events.map(item => item.phase), ['down', 'move', 'up', 'down', 'up']);
+  assert.deepEqual(events.slice(0, 3).map(item => [item.x, item.y]), [[0.5, 0.25], [0.5, 0.75], [0.5, 0.75]]);
+  assert.deepEqual(events.slice(3).map(item => item.code), [3, 3]);
+  f.canvasEvents.get('pointerdown')(event(50)); await flush();
+  await ui.pausePreview(); await flush();
+  assert.equal(f.app.requests.findLast(item => item.method === 'input.send').params.requests.at(-1).command.kind, 'reset');
+  assert.equal(f.canvasEvents.size, 0);
+  assert.equal(f.app.requests.filter(item => item.method === 'preview.stop').length, 1);
+  assert.equal(f.app.state().sessions['chat-a'].binding, 'binding-chat-a');
+  f.app.dispose();
+});
+
+test('a read-only Simulator descriptor overrides input discovery and remains read-only after pause', async () => {
+  const device = { ...SIMULATOR, capabilities: { ...SIMULATOR.capabilities, input: true } };
+  const f = previewHarness({ device, input: false }), ui = f.app.ui('chat-a');
+  await ui.connect(device.id);
+  const waitingHome = elements(renderPanel(f.app)).find(item => item.type === 'button' && item.props.children[0] === 'Home');
+  assert.equal(waitingHome.props.disabled, true);
+  await ui.startPreview(f.canvas); await flush();
+  assert.equal(f.canvasEvents.size, 0);
+  await ui.pausePreview();
+  assert.ok(JSON.stringify(renderPanel(f.app)).includes('Read-only preview'));
+  assert.ok(!elements(renderPanel(f.app)).some(item => item.type === 'button' && item.props.children[0] === 'Home'));
+  f.app.dispose();
+});
 
 test('preview controller uses a distinct stream epoch; EOF resets input and retains the chat lease', async () => {
   const f = previewHarness(), ui = f.app.ui('chat-a');

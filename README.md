@@ -9,9 +9,28 @@ devices to DeepSeek Harness Web and Desktop. The intended product provides live
 preview and input for emulators, simulators and physical devices, without requiring
 mobile-dev-harness (mdh).
 
-**Current status: development preview with an Android video/control implementation.**
-The Rust backend and local DSH plugin provide device discovery, explicit emulator
-startup, session ownership, H.264 streaming and single-pointer/basic-key input.
+The public repository is preparing its first GitHub Release, **`0.1.0-preview.5`**:
+existing Android support plus local iOS Simulator support. Final CI artifact
+verification and publication are pending; see the [release checklist](docs/RELEASING.md).
+The npm package remains private. This is a development preview, not stable 1.0.
+
+**Current status: development preview with Android video/control and experimental
+capability-gated iOS Simulator video, single-pointer tap/drag and Home.** The
+current local source build verified Home, canvas tap and visible drag scrolling
+in stock DSH Web `0.2.1-alpha.1` and official Desktop `0.2.0-rc.2` on macOS
+26.7 Apple Silicon / Xcode 26.4 / iOS 26.4 / iPhone 17. These local source checks
+do not qualify the pending preview.5 archive. Native input effects and Web
+tap coordinates after canvas resizing also passed on that target. Initial scope
+is upright portrait, without keyboard/text/IME,
+multi-touch, Back or iOS physical devices. Input is enabled only after a native
+capability probe succeeds; otherwise preview stays read-only. Cleanup releases a
+held iOS gesture by ending it, which can complete a tap or drag.
+Other Xcode/runtime combinations and several lifecycle cases remain unqualified;
+see [iOS Simulator evidence and remaining checks](docs/IOS-SIMULATOR.md).
+
+For Android, the Rust backend and local DSH plugin provide device discovery,
+explicit emulator startup, session ownership, H.264 streaming and
+single-pointer/basic-key input.
 The current candidate implements **Android 10–17 / API 29–37 arm64-v8a adapters**,
 using a Unix host and a WebCodecs-capable client. Runtime qualification is still in
 progress; eligibility is not a compatibility pass. Native capture/input/cleanup
@@ -38,7 +57,10 @@ preview automatically after a new connection, then reports actual decoding progr
 | Rust/JNI capture, NDK H.264 encoding and WebCodecs playback | API 29–37 arm64 adapters implemented; runtime qualification tracked per target in the compatibility matrix |
 | Single-pointer input and basic Android keys | Implemented; Web/Desktop tap, drag and navigation verified on the target emulator |
 | DSH Web/Desktop connection button and device panel | Implemented; stock Web and official Desktop GUI verified on the recorded archives and targets |
-| iOS Simulator and iOS physical devices | Planned; no backend yet |
+| Android/iOS platform picker and optional `open_mobile_preview` agent tool | Implemented; routes the current chat to its platform panel without choosing or connecting a device |
+| iOS Simulator discovery, explicit startup and video | Experimental source implementation; previous-phase Web/Desktop video passes on Xcode 26.4 / iOS 26.4 / iPhone 17 |
+| iOS Simulator single-pointer tap/drag and Home | Enabled when native input capability is verified; native, stock Web and official Desktop effects passed on the recorded target |
+| iOS keyboard/text/IME, multi-touch, Back and physical devices | Not implemented |
 
 Android physical devices can be discovered and probed through adb. Preview/input
 qualification is separate from discovery and is recorded per tested target below.
@@ -47,11 +69,15 @@ are outside the current scope. MPP draws on scrcpy's separation of video and
 control, but does not run, redistribute or depend on scrcpy, and does not implement
 its wire protocol.
 
-## Install a local preview package
+## Install the preview candidate
 
 The packaging script creates a self-contained `.tgz` for a **macOS Apple Silicon
-DSH Host running macOS 14 or later**, with **Android API 29–37 arm64-v8a adapters**. This is a local preview
-artifact; no npm package or GitHub Release has been published. The
+DSH Host running macOS 14 or later**, with **Android API 29–37 arm64-v8a adapters**
+and local **iOS Simulator** support through installed Xcode. iOS qualification is
+scoped to macOS 26.7 / Xcode 26.4 / iOS 26.4 / iPhone 17. Physical iOS devices are
+excluded. The `0.1.0-preview.5` archive identity and acceptance are tracked in the
+[release checklist](docs/RELEASING.md); earlier package checks remain historical.
+The
 `0.1.0-preview.1` archive passed clean installation, playback and removal on the
 official npm DSH `0.2.1-alpha.1` Web distribution in an isolated profile. This used
 no source patch, runtime-path overrides or model API key. The official Desktop
@@ -66,26 +92,40 @@ open DSH **Plugins → Add plugin**, enter its absolute `.tgz` path, install it 
 enable it. For a Web profile, the equivalent CLI command is:
 
 ```sh
-dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.4-darwin-arm64.tgz
+dsh plugin --profile web add /absolute/path/mobile-dev-harness-dsh-mobile-preview-0.1.0-preview.5-darwin-arm64.tgz
 ```
 
-`0.1.0-preview.4` is an example development version, not a published or qualified
-release. Use the version and path of the archive you actually built.
+`0.1.0-preview.5` is the selected release candidate. Use the exact archive whose
+checksum and verification record appear in the release checklist; publication
+has not yet been confirmed.
 
 The archive includes the Rust host and matching Android bootstrap/native library;
 their paths resolve relative to the installed package. No `MPP_EXECUTABLE`
 environment variable, Rust, NDK or JDK is needed to use the archive. The DSH Host
-still needs Android SDK platform-tools and an authorized API 29–37 arm64 device;
+needs Android SDK platform-tools and an authorized API 29–37 arm64 device for Android;
 check its qualification status in the compatibility matrix before use.
 Emulator use additionally requires the emulator package and an existing supported
 AVD. Web clients need H.264 WebCodecs support. On stock DSH,
 sidebar width remains manually adjustable; the optional width patch is not required
 for preview or input.
 
-Open the device panel, select the exact device and choose **Connect** to begin
-preview. See the [package README](packages/dsh-plugin/README.md) for prerequisites,
-limitations and removal. Explicit `executable` and `deviceAssets` configuration is
-still supported for source development.
+Open the device panel and choose **Android** or **iOS**. A new chat starts without
+a selected platform or adb discovery. **Android** loads the device inventory;
+select the exact device and choose **Connect** to begin preview. In the current
+source build on macOS, **iOS** lists local Xcode Simulators for explicit startup
+and video, with tap/drag and Home when the selected Simulator's input probe passes;
+otherwise video remains read-only. Other hosts report an unavailable backend.
+Physical iOS devices are unsupported. Earlier qualified Android
+archives do not include or qualify this new iOS implementation. See the
+[package README](packages/dsh-plugin/README.md) for
+prerequisites, limitations and removal. Explicit `executable` and `deviceAssets`
+configuration is still supported for source development.
+
+For the iOS Home gesture, start inside the bottom 2% of the actual screen and make
+a short upward swipe. The decorative bezel is outside the touch surface. Gesture
+qualification is in the [iOS guide](docs/IOS-SIMULATOR.md). A user-operated Web
+App Switcher gesture passed on 2026-10-10; manual Desktop App Switcher remains
+unqualified.
 
 After installing a new native package version, restart the DSH Host before
 connecting; hot reload can retain the previous package-relative runtime path.
@@ -132,9 +172,11 @@ not qualify the later CI archive on physical devices or other vendors.
 
 ## Build and try from source
 
-Requires Rust 1.88 or later. Device commands additionally require Android SDK
+Requires Rust 1.88 or later. Android commands additionally require Android SDK
 platform-tools (`adb`); AVD discovery and startup require the SDK emulator package
-and an existing AVD.
+and an existing AVD. iOS Simulator commands instead require macOS Apple Silicon,
+Xcode and an installed iOS Simulator runtime; Android SDK and device assets are
+not needed for iOS preview.
 
 ```sh
 cargo build --workspace --locked
@@ -166,6 +208,19 @@ When `--adb` is provided, also provide `--emulator` if AVD discovery or startup 
 needed. Without the emulator tool, connected-device discovery still works and
 returns a warning.
 
+For the experimental iOS backend, use the exact Simulator UDID returned by
+`devices`. Startup remains an explicit request:
+
+```sh
+./target/debug/mpp boot --simulator <UDID>
+./target/debug/mpp probe --simulator <UDID>
+```
+
+The CLI accepts `--xcrun /absolute/path/to/xcrun`; the default is `/usr/bin/xcrun`.
+The active Xcode installation supplies its runtimes and CoreSimulator components.
+See the [iOS guide](docs/IOS-SIMULATOR.md) for source setup, capture boundaries and
+scoped qualification. Disconnecting preview leaves the Simulator running.
+
 ## DSH development plugin
 
 The adapter lives in `packages/dsh-plugin`. It runs without mdh and adds no
@@ -175,7 +230,7 @@ services. Source DSH `0.2.1-alpha.1` at commit
 Automatic phone-width sizing additionally uses a local DSH UI extension; it is
 not part of that upstream commit or an officially merged API.
 
-Build the [Android device assets](#android-device-build-and-encoder-probe), then
+For Android, build the [device assets](#android-device-build-and-encoder-probe), then
 prepare the pinned DSH source checkout and run either surface from this repository:
 
 ```sh
@@ -228,8 +283,8 @@ recur during the native run or latest Web checks; its cause remains unresolved.
 These results do not establish broader platform or sustained end-to-end GUI
 reliability, and no throughput or latency claim is made.
 
-Select an explicitly chosen, authorized device in the implemented API/ABI range
-and choose **Connect**; the visible
+After choosing **Android**, select an authorized device in the implemented API/ABI
+range and choose **Connect**; the visible
 phone screen starts preview automatically. A chat retains its preview intent through resizing,
 temporary hiding/backgrounding and view replacement. Hiding suspends capture and
 releases input; returning to a visible view resumes after the old capture is cleaned
@@ -263,8 +318,24 @@ readable and the sidebar stays compact.
 Connection leases are process-local; the native helper also rejects competing MPP
 capture processes on the same device. This does not block external adb or physical
 touches. Test the same device in Web and Desktop sequentially. Web operates on
-devices attached to the DSH Host machine. The panel registers no agent tools and
-does not grant model vision; its stdio bridge is internal, not MCP.
+devices attached to the DSH Host machine. Its stdio bridge is internal, not MCP.
+
+When DSH provides its tools service, the plugin registers one optional agent tool:
+`open_mobile_preview({platform: "android"})` (or `"ios"`). For example, ask the agent:
+“Open the Android preview for this chat.” The tool selects a platform and requests
+the panel for the calling chat; you still choose the device and connect. It cannot
+boot or connect devices, send input or take screenshots, and grants no model vision.
+An iOS request opens Simulator selection on macOS; the selected device's native
+capabilities determine which manual controls are available. Manual use remains
+available without the tools service.
+
+Platform choices are kept in bounded DSH Host memory per chat. They survive a
+browser reload while retained, but reset when the plugin service or DSH Host
+restarts. A different-platform connection returns `BUSY`; disconnect it explicitly
+before switching. While the document is visible, the mounted chat checks requests
+every two seconds and opens its panel once per new agent request. An inactive chat
+does not take focus. Closing the panel keeps it closed for that request; a new
+agent request can reopen it.
 
 ## Local host contract
 
@@ -297,13 +368,14 @@ and the next increments.
 
 ## Development
 
-The workspace contains four crates:
+The workspace contains five crates:
 
 | Crate | Responsibility |
 | --- | --- |
 | `mpp-core` | Device/session types, capture epochs, input state and media framing; no platform I/O |
 | `mpp-android` | SDK/device discovery, lifecycle, helper deployment and authenticated channel setup |
 | `mpp-android-device` | Rust/JNI Android capture/input and NDK H.264 encoding |
+| `mpp-ios` | Local Simulator discovery/startup, isolated CoreSimulator/IOSurface → VideoToolbox capture and capability-gated DTUHID input |
 | `mpp-host` | `mpp` CLI, stdio lifecycle protocol and private media/control relays |
 
 Tokio, Serde, serde_json and thiserror are the foundation dependencies; `jni` 0.22
@@ -311,6 +383,8 @@ and a tiny Java bootstrap were additionally approved for Android framework acces
 Java initializes the runtime and loads Rust; capture, media, transport and input
 remain in Rust. The JavaScript adapter binds sessions to DSH conversations and
 provides the shared Web/Desktop UI.
+The iOS crate adds no external dependency: it calls installed Apple frameworks
+through a small native FFI boundary. Those frameworks are not redistributed.
 
 ```sh
 cargo fmt --all --check
@@ -389,13 +463,14 @@ arm64-v8a) completed the encoder lifecycle, reporting `encoder: "video/avc"`,
 Those historical probe runs verified configure/create-input-surface/start/dequeue/
 stop/release only, not the current live-video path.
 
-This source repository remains private and in development; its crates have
+This source repository is public and in development; its crates have
 `publish = false`. Source and staged plugin manifests retain `private: true`;
 producing a local `.tgz` does
 not publish it. MPP is licensed under [Apache-2.0](LICENSE); bundled dependencies
 retain their own licenses, recorded in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
-and `licenses/third-party/`, which are included in preview archives. No npm
-publication or GitHub Release has been authorized or performed; the tested scope,
-remaining limits and review steps are in [RELEASING.md](docs/RELEASING.md). Official DSH distribution
+and `licenses/third-party/`, which are included in preview archives. GitHub Release
+publication is authorized for `0.1.0-preview.5` and awaits final artifact acceptance;
+npm publication is outside this release. The tested scope, remaining limits and
+release status are in [RELEASING.md](docs/RELEASING.md). Official DSH distribution
 is a future upstream contribution, not a current inclusion or endorsement.
 This is a development preview, not a 1.0 stable release.

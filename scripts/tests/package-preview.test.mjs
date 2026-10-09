@@ -102,12 +102,23 @@ test('packed package relocates with complete runtime paths, permissions, hashes 
   assert.deepEqual(runtime.source, source);
   assert.deepEqual(runtime.android, { minApi: 29, supportedApis: [29, 30, 31, 32, 33, 34, 35, 36, 37],
     abi: 'arm64-v8a', profile: 'release' });
+  assert.equal(runtime.formatVersion, 1);
+  assert.deepEqual(runtime.ios, { deviceKind: 'simulator', runtime: 'installed-xcode', profile: 'release',
+    input: 'capability-gated', bundledAssets: [] });
   assert(!existsSync(join(packageRoot, 'native/android-api32-arm64')));
+  assert(!existsSync(join(packageRoot, 'native/ios')));
+  assert(existsSync(join(packageRoot, 'src/host/agent.mjs')));
+  assert.deepEqual(runtime.files.map(file => file.path), ['native/darwin-arm64/mpp',
+    'native/android-arm64/bootstrap.jar', 'native/android-arm64/libmpp_android_device.so']);
   for (const file of runtime.files) assert.equal(hash(join(packageRoot, file.path)), file.sha256);
   const { resolveRuntime } = await import(pathToFileURL(join(packageRoot, 'src/host/runtime.mjs')).href);
   const settings = resolveRuntime({}, { platform: 'darwin', arch: 'arm64' });
   assert.equal(settings.executable, join(packageRoot, 'native/darwin-arm64/mpp'));
   assert.equal(settings.deviceAssets, join(packageRoot, 'native/android-arm64'));
+  const legacyRuntime = { ...runtime };
+  delete legacyRuntime.ios;
+  writeFileSync(join(packageRoot, 'runtime-manifest.json'), JSON.stringify(legacyRuntime));
+  assert.deepEqual(resolveRuntime({}, { platform: 'darwin', arch: 'arm64' }), settings);
   assert(statSync(settings.executable).mode & 0o111);
   assert.equal(spawnSync(settings.executable, ['--version'], { encoding: 'utf8' }).stdout.trim(), 'mpp 0.1.0');
   if (process.platform === 'darwin' && process.arch === 'arm64') {

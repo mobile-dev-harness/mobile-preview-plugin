@@ -9,7 +9,7 @@ export const RESPONSE_LIMIT = 1_048_576;
 export const DEFAULT_TIMEOUT_MS = 15_000;
 export const BOOT_TIMEOUT_MS = 130_000;
 export const EXPECTED_METHODS = Object.freeze([
-  'hello', 'devices.list', 'emulator.start', 'session.connect',
+  'hello', 'devices.list', 'emulator.start', 'simulator.start', 'session.connect',
   'session.status', 'session.disconnect', 'preview.start', 'preview.stop', 'input.send',
 ]);
 
@@ -70,8 +70,8 @@ async function executablePath(value, field) {
 
 /** Launch one local host. No executable paths or environment values come from requests. */
 export async function createBridge(config) {
-  if (!record(config) || Object.keys(config).some((key) => !['executable', 'adb', 'emulator', 'shutdownTimeoutMs'].includes(key))) {
-    throw failure('INVALID_CONFIG', 'Expected executable and optional adb/emulator paths.');
+  if (!record(config) || Object.keys(config).some((key) => !['executable', 'adb', 'emulator', 'xcrun', 'shutdownTimeoutMs'].includes(key))) {
+    throw failure('INVALID_CONFIG', 'Expected executable and optional adb/emulator/xcrun paths.');
   }
   const executable = await executablePath(config.executable, 'executable');
   const shutdownTimeoutMs = config.shutdownTimeoutMs ?? 30_000;
@@ -79,7 +79,7 @@ export async function createBridge(config) {
     throw failure('INVALID_CONFIG', 'shutdownTimeoutMs must be an integer in 1..60000.');
   }
   const args = [];
-  for (const key of ['adb', 'emulator']) {
+  for (const key of ['adb', 'emulator', 'xcrun']) {
     if (config[key] !== undefined) args.push(`--${key}`, await executablePath(config[key], key));
   }
   args.push('serve', '--stdio');
@@ -146,10 +146,11 @@ export class MppBridge extends EventEmitter {
       || Object.keys(options).some((key) => key !== 'timeoutMs')) {
       return Promise.reject(failure('INVALID_ARGUMENT', 'Expected a supported method, object parameters, and timeoutMs only.'));
     }
-    const timeoutMs = options.timeoutMs ?? (method === 'emulator.start' ? BOOT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
+    const boot = ['emulator.start', 'simulator.start'].includes(method);
+    const timeoutMs = options.timeoutMs ?? (boot ? BOOT_TIMEOUT_MS : DEFAULT_TIMEOUT_MS);
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS
-      || (method === 'emulator.start' && timeoutMs < BOOT_TIMEOUT_MS)) {
-      return Promise.reject(failure('INVALID_ARGUMENT', 'Invalid timeout; emulator startup requires at least 130000 ms.'));
+      || (boot && timeoutMs < BOOT_TIMEOUT_MS)) {
+      return Promise.reject(failure('INVALID_ARGUMENT', 'Invalid timeout; device startup requires at least 130000 ms.'));
     }
     if (this.#pending.size >= MAX_PENDING) {
       return Promise.reject(failure('BUSY', 'Too many pending MPP requests.'));

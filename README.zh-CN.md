@@ -13,7 +13,21 @@ mobile-dev-harness（mdh）。
 记录的 Web／Desktop／原生检查；具体验收范围和剩余限制见
 [发布记录](docs/RELEASING.md)。npm 包继续保持私有。这是开发预览，不是 1.0 稳定版。
 
-**当前状态：已实现 Android 视频与控制，以及按设备能力启用的实验性 iOS Simulator
+## 实际运行截图
+
+以下是在 Apple Silicon macOS 上，使用已发布的 `v0.1.0-preview.5` 归档，
+通过原版 DSH Web `0.2.1-alpha.1` 显示的真实预览画面。截图仅展示下列目标，
+不代表其他设备或 runtime 已通过兼容性验证。对话为 UI 设计讨论，预览显示系统设置；
+截图已裁去本机主机信息。点击图片可查看原图。
+
+| iOS Simulator（实验性） | Android 模拟器 |
+| --- | --- |
+| [![DSH Web 中的 iPhone 17 预览](docs/assets/screenshots/dsh-ios-simulator.jpg)](docs/assets/screenshots/dsh-ios-simulator.jpg) | [![DSH Web 中的 Android 15 模拟器预览](docs/assets/screenshots/dsh-android-emulator.jpg)](docs/assets/screenshots/dsh-android-emulator.jpg) |
+| iPhone 17 · iOS 26.4 · Xcode 26.4。仅限 Simulator，不包含 iOS 真机。 | Android 15 · API 35 · arm64。 |
+
+## 当前状态
+
+**已实现 Android 视频与控制，以及按设备能力启用的实验性 iOS Simulator
 视频、单指点击／拖动和 Home。** 当前本地源码构建已在
 macOS 26.7 Apple Silicon／Xcode 26.4／iOS 26.4／iPhone 17 上，
 通过原版 DSH Web `0.2.1-alpha.1` 和官方 Desktop `0.2.0-rc.2` 验证 Home、画布点击

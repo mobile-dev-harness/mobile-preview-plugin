@@ -15,7 +15,22 @@ CI archive passed provenance and the recorded Web/Desktop/native checks; scoped
 acceptance and remaining limitations are in the [release record](docs/RELEASING.md).
 The npm package remains private. This is a development preview, not stable 1.0.
 
-**Current status: development preview with Android video/control and experimental
+## Actual screenshots
+
+Real preview frames in stock DSH Web `0.2.1-alpha.1`, using the published
+`v0.1.0-preview.5` archive on Apple Silicon macOS. These screenshots demonstrate
+only the listed targets; they do not establish broader device or runtime compatibility.
+The chat discusses UI design while the preview shows system Settings. Captures
+are cropped to omit local host details. Select an image to view it at full size.
+
+| iOS Simulator (experimental) | Android emulator |
+| --- | --- |
+| [![iPhone 17 preview in DSH Web](docs/assets/screenshots/dsh-ios-simulator.jpg)](docs/assets/screenshots/dsh-ios-simulator.jpg) | [![Android 15 emulator preview in DSH Web](docs/assets/screenshots/dsh-android-emulator.jpg)](docs/assets/screenshots/dsh-android-emulator.jpg) |
+| iPhone 17 · iOS 26.4 · Xcode 26.4. Simulator only; no physical iOS devices. | Android 15 · API 35 · arm64. |
+
+## Current status
+
+**Development preview with Android video/control and experimental
 capability-gated iOS Simulator video, single-pointer tap/drag and Home.** The
 current local source build verified Home, canvas tap and visible drag scrolling
 in stock DSH Web `0.2.1-alpha.1` and official Desktop `0.2.0-rc.2` on macOS

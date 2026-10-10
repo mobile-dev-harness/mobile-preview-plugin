@@ -17,12 +17,13 @@ mobile-dev-harness（mdh）。
 
 以下是在 Apple Silicon macOS 上，使用已发布的 `v0.1.0-preview.5` 归档，
 通过原版 DSH Web `0.2.1-alpha.1` 显示的真实预览画面。截图仅展示下列目标，
-不代表其他设备或 runtime 已通过兼容性验证。对话为 UI 设计讨论，预览显示系统设置；
-截图已裁去本机主机信息。点击图片可查看原图。
+不代表其他设备或 runtime 已通过兼容性验证。对话分别请求预览 Android 15 模拟器
+和运行 iOS 26.4 的 iPhone 17 Simulator。agent 打开所请求平台的面板，再由用户选择
+并连接设备；连接后的预览显示系统设置。截图已裁去本机主机信息。点击图片可查看原图。
 
 | iOS Simulator（实验性） | Android 模拟器 |
 | --- | --- |
-| [![DSH Web 中的 iPhone 17 预览](docs/assets/screenshots/dsh-ios-simulator.jpg)](docs/assets/screenshots/dsh-ios-simulator.jpg) | [![DSH Web 中的 Android 15 模拟器预览](docs/assets/screenshots/dsh-android-emulator.jpg)](docs/assets/screenshots/dsh-android-emulator.jpg) |
+| [![DSH Web 中的 iPhone 17 预览](docs/assets/screenshots/dsh-ios-workflow.jpg)](docs/assets/screenshots/dsh-ios-workflow.jpg) | [![DSH Web 中的 Android 15 模拟器预览](docs/assets/screenshots/dsh-android-workflow.jpg)](docs/assets/screenshots/dsh-android-workflow.jpg) |
 | iPhone 17 · iOS 26.4 · Xcode 26.4。仅限 Simulator，不包含 iOS 真机。 | Android 15 · API 35 · arm64。 |
 
 ## 当前状态

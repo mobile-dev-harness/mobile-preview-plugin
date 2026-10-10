@@ -20,12 +20,14 @@ The npm package remains private. This is a development preview, not stable 1.0.
 Real preview frames in stock DSH Web `0.2.1-alpha.1`, using the published
 `v0.1.0-preview.5` archive on Apple Silicon macOS. These screenshots demonstrate
 only the listed targets; they do not establish broader device or runtime compatibility.
-The chat discusses UI design while the preview shows system Settings. Captures
+The chats request previews of an Android 15 emulator and an iPhone 17 Simulator
+running iOS 26.4. The agent opens the requested platform panel; the user selects
+and connects the device. The connected previews show system Settings. Captures
 are cropped to omit local host details. Select an image to view it at full size.
 
 | iOS Simulator (experimental) | Android emulator |
 | --- | --- |
-| [![iPhone 17 preview in DSH Web](docs/assets/screenshots/dsh-ios-simulator.jpg)](docs/assets/screenshots/dsh-ios-simulator.jpg) | [![Android 15 emulator preview in DSH Web](docs/assets/screenshots/dsh-android-emulator.jpg)](docs/assets/screenshots/dsh-android-emulator.jpg) |
+| [![iPhone 17 preview in DSH Web](docs/assets/screenshots/dsh-ios-workflow.jpg)](docs/assets/screenshots/dsh-ios-workflow.jpg) | [![Android 15 emulator preview in DSH Web](docs/assets/screenshots/dsh-android-workflow.jpg)](docs/assets/screenshots/dsh-android-workflow.jpg) |
 | iPhone 17 · iOS 26.4 · Xcode 26.4. Simulator only; no physical iOS devices. | Android 15 · API 35 · arm64. |
 
 ## Current status
